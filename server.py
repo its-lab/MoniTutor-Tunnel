@@ -18,6 +18,8 @@ import db
 import ssl
 import hashlib
 import base64
+import hmac
+
 
 if os.name == 'posix' and sys.version_info[0] < 3:
     import subprocess32 as subprocess
@@ -29,7 +31,7 @@ else:
 #################
 ICINGACMD = "/var/run/icinga2/cmd/icinga2.cmd"
 VERSION = 0.1
-
+secret = "nosecret"
 #################
 #   GLOBALS     #
 #################
@@ -493,7 +495,6 @@ class ClientThread(pykka.ThreadingActor):
         return {"payload": payload, "next_chunk": next_chunk}
 
     def _readsocket(self):
-
         logger.debug("ClientThread._readsocket started. Socket-ID:" + str(self._socket))
         next_chunk = ""
         while self.__run:
@@ -516,9 +517,24 @@ class ClientThread(pykka.ThreadingActor):
             if len(results):
                 for result in results:
                     try:
-                        status_dict = json.loads(result)
-                        logger.debug("Result after json.loads: " + str(status_dict))
+                        status_packet = json.loads(result)
+                        logger.debug("Result after json.loads: " +
+                                str(status_packet))
+                        try:
+                            if "HMAC" in status_packet:
+                                result_hmac = hmac.new( secret,
+                                        str(status_packet["message"]),
+                                                        hashlib.sha256).hexdigest()
+                                if result_hmac == status_packet["HMAC"]:
+                                    logger.debug("HMAC match")
+                                else:
+                                    raise ValueError("HMAC didnt't match - unauthenticated user!")
+                            else:
+                                raise ValueError("No HMAC found - unauthenticated user!")
+                        except Exception as err:
+                            logger.exception("Exception: " + str(err))
 
+                        status_dict = status_packet["message"]
                         if "code" in status_dict:
                             task = status_dict.get("task")
                             if status_dict["code"] == "NEW":
@@ -559,7 +575,7 @@ class ClientThread(pykka.ThreadingActor):
                                 self.resultwriter.tell(host_dict)
 
                     except Exception as err:
-                        logger.error("Exception caught: " + str(err) + " - " + str(result))
+                        logger.exception("Exception caught: " + str(err) + " - " + str(result))
                         self.__run = False
                         break
         self.__pulling = False

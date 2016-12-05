@@ -15,7 +15,7 @@ import sys
 import ssl
 import hashlib
 import base64
-
+import hmac
 
 
 #################
@@ -32,6 +32,7 @@ parser.add_argument("-l", "--log", action="store_true", help="Enable logging to 
 parser.add_argument("-u", "--user", type=str, default="/etc/MoniTutor/username", help="File that contains the username "
                                                                                        "(default: %(default)s)")
 parser.add_argument("-n", "--hostname", type=str, help="[Optional]")
+parser.add_argument("-s", "--secret", type=str, help="Secret user password [Optional]")
 
 
 args = parser.parse_args()
@@ -73,6 +74,7 @@ port = args.port
 path = args.user
 user = DEFAULT_USER
 name = DEFAULT_NAME
+secret = "nosecret"
 server_address = (host, port)
 if args.hostname is None:
     hostname = socket.gethostname()
@@ -162,10 +164,9 @@ class Init(threading.Thread):
             writethread.start()
             try:
                 task = (1, 100)
-                status_dict = {"task": task, "result": {"host": identifier}, "code": "NEW"}  #request
-                serialized_dict = json.dumps(status_dict)
-                logger.debug("Sending init message: " + str(serialized_dict))
-                self.client_socket.send(serialized_dict)
+                status_dict = {"task": task, "result": {"host": identifier}, "code": "NEW"}
+                answer_queue.append(status_dict)
+                answer_queue_sema.release()
                 socket_open.set()
                 socket_closed.clear()
                 logger.debug("Thread waits for socket errors, to restart socket")
@@ -312,13 +313,16 @@ class Write(threading.Thread):
             if not self.__run:
                 return
             status_dict = answer_queue.pop()
-            serialized_dict = json.dumps(status_dict)
-
+            packet = {"message": status_dict, "HMAC": " ", "ID": user}
+            serialized_msg = json.dumps(packet["message"])
+            status_dict_hmac = hmac.new(secret, str(json.loads(serialized_msg)), hashlib.sha256).hexdigest()
+            packet["HMAC"] = status_dict_hmac
+            serialized_packet = json.dumps(packet)
             successfully_send = False
             while not successfully_send:
                 try:
-                    logger.debug("Try to send status dictionary" + str(serialized_dict))
-                    self.socket.send(serialized_dict)
+                    logger.debug("Try to send status dictionary serialized:" + str(serialized_packet))
+                    self.socket.send(serialized_packet)
                     logger.debug("Dictionary sent successfully.")
                     successfully_send = True
                 except socket_error:
