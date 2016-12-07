@@ -12,6 +12,16 @@ config = yaml.load(configfile)
 engine = sa.create_engine("postgresql://"+config.get('username')+":"+config.get('password')+"@localhost/"+config.get('database'))
 Base = declarative_base() # Defines the base to map Tables
 
+class Auth_user(Base):
+    __tablename__ = 'auth_user'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String)
+    hmac_secret = Column(String)
+
+    def __repr__(self):
+        return "<Types(username='%s', hmac_secret='%s')>" % (self.username,
+                self.hmac_secret)
 
 class Check_tasks(Base):
     __tablename__ = 'monitutor_check_tasks'

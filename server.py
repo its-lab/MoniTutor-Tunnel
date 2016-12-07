@@ -438,6 +438,8 @@ class ClientThread(pykka.ThreadingActor):
         super(ClientThread, self).__init__()
         self._socket = socket
         self._identifier = None
+        self._username = None
+        self.__hmac_secret = None
         self._heartbeat = 10
         self.resultwriter = resultwriter
         self.queuehandle = queuehandle
@@ -521,8 +523,20 @@ class ClientThread(pykka.ThreadingActor):
                         logger.debug("Result after json.loads: " +
                                 str(status_packet))
                         try:
-                            if "HMAC" in status_packet:
-                                result_hmac = hmac.new( secret,
+                            if "HMAC" in status_packet and "ID" in status_packet:
+                                if self._username is None:
+                                    self._username = status_packet["ID"]
+                                    userRow = dbHandle.query(db.Auth_user).filter(db.Auth_user.username
+                                            == self._username).first()
+                                    logger.debug(str(userRow))
+                                    self.__hmac_secret = str(userRow.hmac_secret)
+                                    logger.debug("HMAC of user " +
+                                            self._username + " = " +
+                                            self.__hmac_secret)
+                                elif self._username != status_packet["ID"]:
+                                    raise ValueError("UserID changed")
+
+                                result_hmac = hmac.new( self.__hmac_secret,
                                         str(status_packet["message"]),
                                                         hashlib.sha256).hexdigest()
                                 if result_hmac == status_packet["HMAC"]:

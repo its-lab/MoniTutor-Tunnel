@@ -29,10 +29,9 @@ parser.add_argument("-a", "--address", required=True, help="Server IPv4 address"
 parser.add_argument("-p", "--port", default=13337, type=int, help="Server port (default: %(default)s)")
 parser.add_argument("-v", "--verbose", action="count", help="Increase verbosity")
 parser.add_argument("-l", "--log", action="store_true", help="Enable logging to syslog")
-parser.add_argument("-u", "--user", type=str, default="/etc/MoniTutor/username", help="File that contains the username "
-                                                                                       "(default: %(default)s)")
+parser.add_argument("-u", "--user", type=str, default="/etc/MoniTutor/username", help="File that contains the username (default: %(default)s)")
 parser.add_argument("-n", "--hostname", type=str, help="[Optional]")
-parser.add_argument("-s", "--secret", type=str, help="Secret user password [Optional]")
+parser.add_argument("-s", "--secret", type=str, default="nosecret", help="Secret user password [Optional]")
 
 
 args = parser.parse_args()
@@ -76,6 +75,9 @@ user = DEFAULT_USER
 name = DEFAULT_NAME
 secret = "nosecret"
 server_address = (host, port)
+if args.secret is not None:
+    secret = args.secret
+
 if args.hostname is None:
     hostname = socket.gethostname()
 else:
