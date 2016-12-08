@@ -30,12 +30,9 @@ else:
 #   Constants   #
 #################
 ICINGACMD = "/var/run/icinga2/cmd/icinga2.cmd"
-VERSION = 0.1
-secret = "nosecret"
 #################
 #   GLOBALS     #
 #################
-
 
 checkqueues = dict()            # dict, that contains a unique host, queue pair, where queue contains checks
 
@@ -51,10 +48,10 @@ parser.add_argument("-p", "--port", default=13337, type=int, help="Listening por
 parser.add_argument("-v", "--verbose", action="count", help="Increase verbosity")
 parser.add_argument("-l", "--log", action="count", help="Increase Logging level. Overwrites verbose.")
 parser.add_argument("-d", "--daemonize", action="store_true", help="Start as daemon")
-
+parser.add_argument("-i", "--insecure", action="store_true",
+                    help="Disable client message authentication. Not recommended")
 
 args = parser.parse_args()
-
 
 if args.address:
     host = args.address
@@ -546,7 +543,16 @@ class ClientThread(pykka.ThreadingActor):
                             else:
                                 raise ValueError("No HMAC found - unauthenticated user!")
                         except Exception as err:
-                            logger.exception("Exception: " + str(err))
+                            if args.insecure:
+                                logger.info("Message auth failed but was ignored")
+                            else:
+                                logger.exception("Exception: " + str(err))
+                                logger.critical("Unauthorized access from " +
+                                        str(self._socket.getpeername()) + " witth  ID: " + status_packet["ID"])
+                                self.__run = False
+                                self.__polling = False
+                                self.stop()
+                                break
 
                         status_dict = status_packet["message"]
                         if "code" in status_dict:
