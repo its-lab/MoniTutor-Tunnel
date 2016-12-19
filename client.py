@@ -188,6 +188,7 @@ class Init(threading.Thread):
                 writethread.join()
                 del writethread
 
+                time.sleep(5)
                 connected = self._connect()
 
             except Exception as err:
@@ -275,12 +276,21 @@ class Read(threading.Thread):
                     try:
                         for result in results:
                             status_dict = json.loads(result)
+                            if "ERROR" in status_dict:
+                                logger.critical("Received ERROR msg from Server: "+status_dict["ERROR"])
+                                raise ValueError
                             logger.debug("request_queue.append(" + str(status_dict) + ")")
                             request_queue.append(status_dict)
                             tries = 0
                             request_queue_sema.release()
+
+                    except ValueError as err:
+                        logger.exception(err)
+                        socket_closed.set()
+                        self.__run = False
+
                     except Exception as err:
-                        logger.error("Exception caught: " + str(err))
+                        logger.exception(err)
                         socket_closed.set()
                         self.__run = False
 

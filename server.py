@@ -549,6 +549,7 @@ class ClientThread(pykka.ThreadingActor):
                                 logger.exception("Exception: " + str(err))
                                 logger.critical("Unauthorized access from " +
                                         str(self._socket.getpeername()) + " witth  ID: " + status_packet["ID"])
+                                self._writesocket({"ERROR": "Authentication failed"})
                                 self.__run = False
                                 self.__polling = False
                                 self.stop()
