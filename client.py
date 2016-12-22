@@ -16,6 +16,7 @@ import ssl
 import hashlib
 import base64
 import hmac
+import tempfile
 
 
 #################
@@ -62,11 +63,13 @@ if args.log is True:
 VERSION = 0.1
 DEFAULT_USER = "anonymous"
 DEFAULT_NAME = "anonymous"
-TMPDIR       = "/tmp/monitutor/"
+TMPDIR       = tempfile.mkdtemp()
 
 #################
 #   GLOBALS     #
 #################
+
+check_filenames = {} # {"checkname": "/path/to/check/script"}
 
 host = args.address
 port = args.port
@@ -366,13 +369,15 @@ class Check(threading.Thread):
 
             if "code" in check:
                 try:
-                    logger.info("Creating new check file" + str(TMPDIR+check["task"][5]))
-                    newcheck = open(TMPDIR+check["task"][5], "w+")
+                    logger.info("Creating new check file")
+                    newtempfile = tempfile.mkstemp(dir=TMPDIR)
+                    check_filenames[check["task"][5]] = newtempfile[1]
+                    newcheck = open(newtempfile[1], "w+")
                     newcheck.writelines(check["code"].replace("\r\n","\n"))
                     newcheck.flush()
                     newcheck.close()
-                    os.chmod(TMPDIR+check["task"][5], 0755)
-                    if not os.path.isfile(TMPDIR+check["task"][5]):
+                    os.chmod(newtempfile[1], 0755)
+                    if not os.path.isfile(newtempfile[1]):
                         logger.error("File creation failed")
                     del check["code"]
                     request_queue.append(check)
@@ -403,11 +408,14 @@ class Execute(threading.Thread):
         if not self.__run:
             return
         try:
-            exists = os.path.isfile(TMPDIR+self.check["task"][5])
+            exists = False
+            if self.check["task"][5] in check_filenames:
+                tempfile_name = check_filenames[self.check["task"][5]]
+                exists = os.path.isfile(tempfile_name)
             if not exists:
                 raise IOError("Check file not available")
             elif exists:
-                programfile = open(TMPDIR+self.check["task"][5], "rb")
+                programfile = open(tempfile_name, "rb")
                 code_string = programfile.read()
                 code_hash = hashlib.sha256(code_string)
                 code_hash = code_hash.digest()
@@ -424,7 +432,7 @@ class Execute(threading.Thread):
 
         try:
             checkline = self.check["task"][4] + " " \
-                + TMPDIR + self.check["task"][5]
+                + tempfile_name
             if self.check["task"][3] is not None:
                 checkline += " " + self.check["task"][3]
             logger.info("Execute: " + str(checkline))
