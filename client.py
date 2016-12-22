@@ -30,7 +30,8 @@ parser.add_argument("-a", "--address", required=True, help="Server IPv4 address"
 parser.add_argument("-p", "--port", default=13337, type=int, help="Server port (default: %(default)s)")
 parser.add_argument("-v", "--verbose", action="count", help="Increase verbosity")
 parser.add_argument("-l", "--log", action="store_true", help="Enable logging to syslog")
-parser.add_argument("-u", "--user", type=str, default="/etc/MoniTutor/username", help="File that contains the username (default: %(default)s)")
+parser.add_argument("-u", "--user", type=str, default="anonymous",
+        help="Username (default: %(default)s)")
 parser.add_argument("-n", "--hostname", type=str, help="[Optional]")
 parser.add_argument("-s", "--secret", type=str, default="nosecret", help="Secret user password [Optional]")
 
@@ -55,29 +56,17 @@ if args.verbose > 0:
 if args.log is True:
     syslog_enabled = True
 
+# Globals
 
-#################
-#   Constants   #
-#################
-
-VERSION = 0.1
-DEFAULT_USER = "anonymous"
-DEFAULT_NAME = "anonymous"
 TMPDIR       = tempfile.mkdtemp()
-
-#################
-#   GLOBALS     #
-#################
-
 check_filenames = {} # {"checkname": "/path/to/check/script"}
 
 host = args.address
 port = args.port
-path = args.user
-user = DEFAULT_USER
-name = DEFAULT_NAME
+user = args.user
 secret = "nosecret"
 server_address = (host, port)
+
 if args.secret is not None:
     secret = args.secret
 
@@ -86,10 +75,13 @@ if args.hostname is None:
 else:
     hostname = args.hostname
 
-with open(path, 'r') as fh:
-    user = next(fh).decode().strip()
-
 identifier = user + "_" + hostname
+
+if not os.path.exists(TMPDIR):
+    os.mkdir(TMPDIR)
+
+
+# Logger
 
 logger = logging.getLogger("MoniTunnel")
 numeric_loglevel = getattr(logging, loglevel)
@@ -114,9 +106,6 @@ socket_open.clear()
 
 request_queue_sema = threading.Semaphore(0)
 answer_queue_sema = threading.Semaphore(0)
-
-if not os.path.exists(TMPDIR):
-    os.mkdir(TMPDIR)
 
 
 class Init(threading.Thread):
