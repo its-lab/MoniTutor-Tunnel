@@ -317,10 +317,11 @@ class Write(threading.Thread):
             if not self.__run:
                 return
             status_dict = answer_queue.pop()
-            packet = {"message": status_dict, "HMAC": " ", "ID": user}
-            serialized_msg = json.dumps(packet["message"])
-            status_dict_hmac = hmac.new(secret, str(json.loads(serialized_msg)), hashlib.sha256).hexdigest()
+            packet = {"message": "", "HMAC": " ", "ID": user}
+            serialized_msg = json.dumps(status_dict)
+            status_dict_hmac = hmac.new(secret, str(serialized_msg), hashlib.sha256).hexdigest()
             packet["HMAC"] = status_dict_hmac
+            packet["message"] = serialized_msg
             serialized_packet = json.dumps(packet)
             successfully_send = False
             while not successfully_send:

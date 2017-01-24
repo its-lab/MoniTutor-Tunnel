@@ -555,7 +555,7 @@ class ClientThread(pykka.ThreadingActor):
                                 self.stop()
                                 break
 
-                        status_dict = status_packet["message"]
+                        status_dict = json.loads(status_packet["message"])
                         if "code" in status_dict:
                             task = status_dict.get("task")
                             if status_dict["code"] == "NEW":
