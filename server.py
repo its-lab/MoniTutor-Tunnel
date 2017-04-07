@@ -382,7 +382,8 @@ class ServerThread(pykka.ThreadingActor):
             while self.__run:
                 try:
                     self._sock.settimeout(2)
-                    new_client = self._sock.accept()[0]
+                    new_connection = self._sock.accept()
+                    new_client = new_connection[0]
                     logger.info("New Client: " + str(new_client))
                     for actor in pykka.ActorRegistry.get_by_class(ClientThread):
                         actorinfo = actor.ask({"info": "short"})
@@ -390,6 +391,12 @@ class ServerThread(pykka.ThreadingActor):
                             actor.stop()
                 except socket.timeout:
                     time.sleep(1)
+                    if self.__run:
+                        continue
+                    else:
+                        break
+                except ssl.SSLError as err:
+                    logger.exception("Exception caught" + str(err))
                     if self.__run:
                         continue
                     else:
