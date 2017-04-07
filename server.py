@@ -401,6 +401,13 @@ class ServerThread(pykka.ThreadingActor):
                         continue
                     else:
                         break
+                except socket.error as err:
+                    logger.exception("exception caught" + str(err))
+                    if self.__run:
+                        continue
+                    else:
+                        break
+
                 if self.__run:
                     new_actor = ClientThread().start(new_client, queuehandle=self.queuehandle, resultwriter=self.resultwriter)
                     logger.info("Incoming Connection. Thread started. " + str(new_actor))
