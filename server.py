@@ -552,6 +552,11 @@ class ClientThread(pykka.ThreadingActor):
                                                         hashlib.sha256).hexdigest()
                                 if result_hmac == status_packet["HMAC"]:
                                     logger.debug("HMAC match")
+                                    if self._identifier is None:
+                                        identifier = json.loads(status_packet["message"])
+                                        identifier = identifier["result"]["host"]
+                                        self._identifier = identifier
+                                        self._send_host_up_msg()
                                 else:
                                     raise ValueError("HMAC didnt't match - unauthenticated user!")
                             else:
@@ -601,7 +606,7 @@ class ClientThread(pykka.ThreadingActor):
                                 logger.debug("send RESULT to resultwriter" + str(status_dict))
                                 self._last_success = status_dict
                                 self.resultwriter.tell(status_dict)
-                                logger.debug("generate HOST_CHECK_RESULT for id: " + self._identifier +
+                                logger.debug("generate PROCESS_HOST_CHECK_RESULT for id: " + self._identifier +
                                              "and send to resultwriter.")
                                 host_dict = copy.deepcopy(status_dict)
                                 host_dict["result"]["type"] = "PROCESS_HOST_CHECK_RESULT"
@@ -672,6 +677,20 @@ class ClientThread(pykka.ThreadingActor):
         a = threading.Thread(target=self._readsocket)
         a.start()
         self.threadlist.append(a)
+        return True
+
+    def _send_host_up_msg(self):
+        host_is_up_message = {}
+        result = {'username': self._username,
+                'short': "Connected",
+                'host': self._identifier,
+                'code': 0,
+                'time': str(int(time.time())),
+                'type': "PROCESS_HOST_CHECK_RESULT"
+                }
+        host_is_up_message["result"] = result
+        logger.debug("send HOST_UP_MSG to resultwriter" + str(host_is_up_message))
+        self.resultwriter.tell(host_is_up_message)
         return True
 
     def on_stop(self):
