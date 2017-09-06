@@ -8,8 +8,13 @@ import yaml
 configfile = open("./appconfig.yaml")
 config = yaml.load(configfile)
 
+engine = sa.create_engine( \
+        "postgresql://" \
+        +config.get('username')+":" \
+        +config.get('password')+"@" \
+        +config.get('host')+"/" \
+        +config.get('database'))
 
-engine = sa.create_engine("postgresql://"+config.get('username')+":"+config.get('password')+"@localhost/"+config.get('database'))
 Base = declarative_base() # Defines the base to map Tables
 
 class Auth_user(Base):
