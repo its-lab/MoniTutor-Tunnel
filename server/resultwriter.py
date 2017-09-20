@@ -1,14 +1,20 @@
 #!/usr/bin/python
 import subprocess
 
+
 class ResultWriter:
 
     def __init__(self, rabbit_host, result_exchange, task_exchange,
                  icingacmd_path="/var/run/icinga2/cmd/icinga2.cmd"):
         self._config = {"rabbit_host": rabbit_host,
-                       "result_exchange": result_exchange,
-                       "task_exchange": task_exchange,
-                       "icingacmd_path" : icingacmd_path}
+                        "result_exchange": result_exchange,
+                        "task_exchange": task_exchange,
+                        "icingacmd_path": icingacmd_path}
+
+    def _message_callback(self, channel, method, properties, body):
+        icingacmd_string = self._get_icingacmd_string(body)
+        icingacmd_commandline_string = self._get_icingacmd_commandline_string(icingacmd_string)
+        self._execute_command(icingacmd_commandline_string)
 
     def _get_icingacmd_string(self, check_result):
         if check_result["icingacmd_type"] == "PROCESS_SERVICE_CHECK_RESULT":
@@ -38,5 +44,3 @@ class ResultWriter:
             returncode = result.returncode
         finally:
             return {"output": output, "returncode": returncode}
-
-

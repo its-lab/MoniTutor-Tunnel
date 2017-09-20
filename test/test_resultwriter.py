@@ -1,4 +1,5 @@
 import unittest
+import os
 import yaml
 from server.resultwriter import ResultWriter
 import time
@@ -8,10 +9,10 @@ class ResultwriterTestCase(unittest.TestCase):
     def setUp(self):
         config_file = open("./test/appconfig.yml")
         app_config = yaml.load(config_file)
-        self.config = {"rabbit_host": app_config.get("rabbit_host"),
+        self.config = {"rabbit_host": app_config.get("rabbitmq_host"),
                        "result_exchange": app_config.get("result_exchange"),
                        "task_exchange": app_config.get("task_exchange"),
-                       "icingacmd_path": "./icingacmd"}
+                       "icingacmd_path": "./test/icingacmd.log"}
         self.resultwriter = ResultWriter(rabbit_host=self.config["rabbit_host"],
                                     result_exchange=self.config["result_exchange"],
                                     task_exchange=self.config["task_exchange"],
@@ -53,3 +54,26 @@ class ResultwriterTestCase(unittest.TestCase):
         self.assertEquals({"output":"test3\n", "returncode": 1},
                           self.resultwriter._execute_command("echo 'test3'; exit 1"))
 
+    def test_callback_function(self):
+        time_now = str(int(time.time()))
+        result = {"icingacmd_type": "PROCESS_SERVICE_CHECK_RESULT",
+                  "time": time_now,
+                  "name": "administrator_ping_myself",
+                  "host": "administrator_itsclient",
+                  "severity_code": 1,
+                  "message": "OK - All fine"}
+        resultstring = "["+str(time_now)+"] PROCESS_SERVICE_CHECK_RESULT;administrator_itsclient;administrator_ping_myself;1;OK - All fine"
+        if os.access(self.config["icingacmd_path"], os.R_OK):
+            os.remove(self.config["icingacmd_path"])
+        self.resultwriter._message_callback(" ", " ", " ", result)
+        time.sleep(.3)
+        self.assertEqual(resultstring,
+                         open(self.config["icingacmd_path"]).readline().rstrip())
+        os.remove(self.config["icingacmd_path"])
+        del result["name"]
+        result["icingacmd_type"] = "PROCESS_HOST_CHECK_RESULT"
+        resultstring = "["+str(time_now)+"] PROCESS_HOST_CHECK_RESULT;administrator_itsclient;1;OK - All fine"
+        self.resultwriter._message_callback(" ", " ", " ", result)
+        time.sleep(.3)
+        self.assertEqual(resultstring,
+                         open(self.config["icingacmd_path"]).readline().rstrip())
