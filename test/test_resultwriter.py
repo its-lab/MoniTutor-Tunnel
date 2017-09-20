@@ -45,6 +45,11 @@ class ResultwriterTestCase(unittest.TestCase):
                          "echo '<ICINGACMD_STRING>' >> "+self.resultwriter._config["icingacmd_path"]+";")
 
     def test_command_execution(self):
-        result = self.resultwriter._execute_command("exit 0")
-        self.assertTrue(0==result["std_err"])
+        self.assertTrue(0==self.resultwriter._execute_command("exit 0")["returncode"])
+        self.assertTrue(1==self.resultwriter._execute_command("exit 1")["returncode"])
+        self.assertEquals("test\n", self.resultwriter._execute_command("echo 'test'")["output"])
+        self.assertEquals({"output":"test2\n", "returncode": 0},
+                          self.resultwriter._execute_command("echo 'test2'"))
+        self.assertEquals({"output":"test3\n", "returncode": 1},
+                          self.resultwriter._execute_command("echo 'test3'; exit 1"))
 

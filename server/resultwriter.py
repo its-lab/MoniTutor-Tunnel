@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import subprocess
 
 class ResultWriter:
 
@@ -29,6 +30,13 @@ class ResultWriter:
         return "echo '"+icingacmd_string+"' >> "+self._config["icingacmd_path"]+";"
 
     def _execute_command(self, command_string):
-        return({"std_err": 0})
+        try:
+            output = subprocess.check_output(command_string, shell=True)
+            returncode = 0
+        except subprocess.CalledProcessError as result:
+            output = result.output
+            returncode = result.returncode
+        finally:
+            return {"output": output, "returncode": returncode}
 
 
