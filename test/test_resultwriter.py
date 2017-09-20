@@ -3,6 +3,8 @@ import os
 import yaml
 from server.resultwriter import ResultWriter
 import time
+import pika
+import json
 
 class ResultwriterTestCase(unittest.TestCase):
 
@@ -17,6 +19,20 @@ class ResultwriterTestCase(unittest.TestCase):
                                     result_exchange=self.config["result_exchange"],
                                     task_exchange=self.config["task_exchange"],
                                     icingacmd_path=self.config["icingacmd_path"])
+        self.rabbitConnection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=self.config["rabbit_host"])
+            )
+        self.rabbitChannel = self.rabbitConnection.channel()
+        self.rabbitChannel.exchange_declare(
+                exchange=self.config["result_exchange"],
+                exchange_type='topic')
+
+    def tearDown(self):
+        try:
+            self.resultwriter.stop()
+            self.resultwriter.join()
+        except:
+            pass
 
     def test_set_rabbitmq_config(self):
         self.assertEqual(self.resultwriter._config,
@@ -65,7 +81,7 @@ class ResultwriterTestCase(unittest.TestCase):
         resultstring = "["+str(time_now)+"] PROCESS_SERVICE_CHECK_RESULT;administrator_itsclient;administrator_ping_myself;1;OK - All fine"
         if os.access(self.config["icingacmd_path"], os.R_OK):
             os.remove(self.config["icingacmd_path"])
-        self.resultwriter._message_callback(" ", " ", " ", result)
+        self.resultwriter._message_callback(" ", " ", " ", json.dumps(result))
         time.sleep(.3)
         self.assertEqual(resultstring,
                          open(self.config["icingacmd_path"]).readline().rstrip())
@@ -73,7 +89,42 @@ class ResultwriterTestCase(unittest.TestCase):
         del result["name"]
         result["icingacmd_type"] = "PROCESS_HOST_CHECK_RESULT"
         resultstring = "["+str(time_now)+"] PROCESS_HOST_CHECK_RESULT;administrator_itsclient;1;OK - All fine"
-        self.resultwriter._message_callback(" ", " ", " ", result)
+        self.resultwriter._message_callback(" ", " ", " ", json.dumps(result))
         time.sleep(.3)
         self.assertEqual(resultstring,
                          open(self.config["icingacmd_path"]).readline().rstrip())
+        os.remove(self.config["icingacmd_path"])
+
+    def test_pika_consumer(self):
+        self.resultwriter.start()
+        time.sleep(.5)
+        time_now = str(int(time.time()))
+        result = {"icingacmd_type": "PROCESS_SERVICE_CHECK_RESULT",
+                  "time": time_now,
+                  "name": "administrator_ping_myself",
+                  "host": "administrator_itsclient",
+                  "severity_code": 1,
+                  "message": "OK - All fine"}
+        result_json = json.dumps(result)
+        self.rabbitChannel.basic_publish(
+                exchange=self.config["result_exchange"],
+                routing_key="service.test",
+                body=result_json)
+        resultstring = "["+str(time_now)+"] PROCESS_SERVICE_CHECK_RESULT;administrator_itsclient;administrator_ping_myself;1;OK - All fine"
+        time.sleep(.5)
+        self.assertEqual(resultstring,
+                         open(self.config["icingacmd_path"]).readline().rstrip())
+        os.remove(self.config["icingacmd_path"])
+        del result["name"]
+        result["icingacmd_type"] = "PROCESS_HOST_CHECK_RESULT"
+        resultstring = "["+str(time_now)+"] PROCESS_HOST_CHECK_RESULT;administrator_itsclient;1;OK - All fine"
+        result_json = json.dumps(result)
+        self.rabbitChannel.basic_publish(
+                exchange=self.config["result_exchange"],
+                routing_key="service.test",
+                body=result_json)
+        time.sleep(.5)
+        self.assertEqual(resultstring,
+                         open(self.config["icingacmd_path"]).readline().rstrip())
+        os.remove(self.config["icingacmd_path"])
+
