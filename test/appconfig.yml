@@ -1,3 +1,4 @@
 rabbitmq_host: "localhost"
 result_exchange: "test_result_exchange"
 task_exchange: "test_task_exchange"
+monitunnel_port: 13337
