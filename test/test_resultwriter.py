@@ -10,10 +10,12 @@ class ResultwriterTestCase(unittest.TestCase):
         app_config = yaml.load(config_file)
         self.config = {"rabbit_host": app_config.get("rabbit_host"),
                        "result_exchange": app_config.get("result_exchange"),
-                       "task_exchange": app_config.get("task_exchange")}
+                       "task_exchange": app_config.get("task_exchange"),
+                       "icingacmd_path": "./icingacmd"}
         self.resultwriter = ResultWriter(rabbit_host=self.config["rabbit_host"],
                                     result_exchange=self.config["result_exchange"],
-                                    task_exchange=self.config["task_exchange"])
+                                    task_exchange=self.config["task_exchange"],
+                                    icingacmd_path=self.config["icingacmd_path"])
 
     def test_set_rabbitmq_config(self):
         self.assertEqual(self.resultwriter._config,
@@ -40,5 +42,9 @@ class ResultwriterTestCase(unittest.TestCase):
 
     def test_icingacmd_command_formatter(self):
         self.assertEqual(self.resultwriter._get_icingacmd_commandline_string("<ICINGACMD_STRING>"),
-                         "echo '<ICINGACMD_STRING>' >> "+self.resultwriter._icingacmd_path+";")
+                         "echo '<ICINGACMD_STRING>' >> "+self.resultwriter._config["icingacmd_path"]+";")
+
+    def test_command_execution(self):
+        result = self.resultwriter._execute_command("exit 0")
+        self.assertTrue(0==result["std_err"])
 
