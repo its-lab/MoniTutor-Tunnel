@@ -28,7 +28,8 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
                 tries -= 1
         echomsg = "\x02hello world\x03"
         client.settimeout(2)
-        client.send(echomsg)
+        client.send(echomsg+echomsg)
+        self.assertEqual(client.recv(1024), echomsg.strip("\x02\x03"))
         self.assertEqual(client.recv(1024), echomsg.strip("\x02\x03"))
         echomsg = "\x02hello world 2\x03"
         client.send(echomsg)

@@ -1,6 +1,7 @@
 from threading import Thread
 from threading import Semaphore
 from Queue import Queue
+import db
 from re import search
 import socket
 
@@ -23,15 +24,24 @@ class ClientThread(Thread):
         self.__start_socket_threads()
         while self.__running:
             try:
-                self._send_message(self._receive_meassge())
+                message = self._receive_meassge()
+                if message and self._message_is_auhorized(message):
+                    self._process_message(message)
             except socket.error as err:
                 pass
+
+    def _message_is_authorized(self, message):
+        return True
+
+    def _process_message(self, message):
+        self._send_message(message)
 
     def _receive_meassge(self):
         self.__message_inbox_lock.acquire()
         while self.__running:
             return self.__message_inbox.get()
             self.__message_inbox_lock.acquire()
+        return False
 
     def _send_message(self, message):
         self.__message_outbox.put(message)
