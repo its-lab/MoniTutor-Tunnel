@@ -1,13 +1,14 @@
 from threading import Thread
 from threading import Semaphore
 from Queue import Queue
+from re import search
 import socket
 
 
 class ClientThread(Thread):
 
     def __init__(self, socket):
-        super(ClientThread,self).__init__()
+        super(ClientThread, self).__init__()
         self._socket = socket
         self._socket.settimeout(2)
         self.__message_inbox_lock = Semaphore(0)
@@ -17,7 +18,6 @@ class ClientThread(Thread):
         self.__thread_list = []
         self.__running = False
 
-
     def run(self):
         self.__running = True
         self.__start_socket_threads()
@@ -26,7 +26,7 @@ class ClientThread(Thread):
                 self._send_message(self._receive_meassge())
             except socket.error as err:
                 pass
-    
+
     def _receive_meassge(self):
         self.__message_inbox_lock.acquire()
         while self.__running:
@@ -54,22 +54,37 @@ class ClientThread(Thread):
             thread.join()
 
     def __socket_receive(self):
+        chunk_buffer = ""
         while self.__running:
             try:
-                packet = self._socket.recv(1024)
-                if packet == "":
+                chunk = self._socket.recv(512)
+                if chunk == "":
                     raise socket.error
             except socket.error as err:
                 self._socket.shutdown(socket.SHUT_RDWR)
                 self.__running = False
                 break
-            self.__message_inbox.put(packet)
-            self.__message_inbox_lock.release()
+            messages, chunk_buffer = self.__get_message_from_chunks(chunk, chunk_buffer)
+            for message in messages:
+                self.__message_inbox.put(message)
+                self.__message_inbox_lock.release()
+
+    def __get_message_from_chunks(self, chunk, chunk_buffer):
+        messages = []
+        while search('[^\x03]*\x03', chunk):
+            end_of_message = search('[^\x03]*\x03', chunk)
+            messages.append(chunk_buffer+end_of_message.group(0)[:-1].strip("\x02"))
+            chunk_buffer = ""
+            if len(chunk) > end_of_message.end(0):
+                chunk = chunk[end_of_message.end(0)+1:]
+            else:
+                chunk = ""
+        else:
+            chunk_buffer += chunk
+        return (messages, chunk_buffer)
 
     def __socket_send(self):
         self.__message_outbox_lock.acquire()
         while self.__running:
             self._socket.send(self.__message_outbox.get())
             self.__message_outbox_lock.acquire()
-
-

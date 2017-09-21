@@ -1,8 +1,8 @@
-import time
 import unittest
 import yaml
 import socket
 from server.monitunneldaemon import MoniTunnelDaemon
+
 
 class MoniTunnelDaemonTestCase(unittest.TestCase):
 
@@ -26,13 +26,13 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
                 connected = True
             except socket.error:
                 tries -= 1
-        echomsg = "hello world"
+        echomsg = "\x02hello world\x03"
         client.settimeout(2)
         client.send(echomsg)
-        self.assertEqual(client.recv(1024), echomsg)
-        echomsg = "hello world 2"
+        self.assertEqual(client.recv(1024), echomsg.strip("\x02\x03"))
+        echomsg = "\x02hello world 2\x03"
         client.send(echomsg)
-        self.assertEqual(client.recv(1024), echomsg)
+        self.assertEqual(client.recv(1024), echomsg.strip("\x02\x03"))
 
     def tearDown(self):
         self.monitunnelDaemon.stop()
