@@ -1,6 +1,6 @@
-from resultwriter import ResultWriter
 import socket
 from threading import Thread
+
 
 class MoniTunnelDaemon(Thread):
 
@@ -21,7 +21,6 @@ class MoniTunnelDaemon(Thread):
                     self.__socket_open = False
             try:
                 client, client_address = self._socket.accept()
-                print client_address
                 client.sendall("Hello student")
                 return True
             except socket.error as err:
@@ -37,4 +36,3 @@ class MoniTunnelDaemon(Thread):
 
     def stop(self):
         self.__running = False
-
