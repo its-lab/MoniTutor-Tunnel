@@ -10,7 +10,6 @@ class ClientThread(Thread):
     def __init__(self, socket):
         super(ClientThread, self).__init__()
         self._socket = socket
-        self._socket.settimeout(2)
         self.__message_inbox_lock = Semaphore(0)
         self.__message_inbox = Queue()
         self.__message_outbox_lock = Semaphore(0)
@@ -20,6 +19,7 @@ class ClientThread(Thread):
 
     def run(self):
         self.__running = True
+        self._socket.settimeout(2)
         self.__start_socket_threads()
         while self.__running:
             try:
@@ -64,23 +64,23 @@ class ClientThread(Thread):
                 self._socket.shutdown(socket.SHUT_RDWR)
                 self.__running = False
                 break
-            messages, chunk_buffer = self.__get_message_from_chunks(chunk, chunk_buffer)
+            messages, chunk_buffer = self._get_message_from_chunks(chunk, chunk_buffer)
             for message in messages:
                 self.__message_inbox.put(message)
                 self.__message_inbox_lock.release()
 
-    def __get_message_from_chunks(self, chunk, chunk_buffer):
+    def _get_message_from_chunks(self, chunk, chunk_buffer):
         messages = []
         while search('[^\x03]*\x03', chunk):
             end_of_message = search('[^\x03]*\x03', chunk)
             messages.append(chunk_buffer+end_of_message.group(0)[:-1].strip("\x02"))
             chunk_buffer = ""
             if len(chunk) > end_of_message.end(0):
-                chunk = chunk[end_of_message.end(0)+1:]
+                chunk = chunk[end_of_message.end(0)+1:].strip("\x02")
             else:
                 chunk = ""
         else:
-            chunk_buffer += chunk
+            chunk_buffer += chunk.strip("\x02")
         return (messages, chunk_buffer)
 
     def __socket_send(self):
