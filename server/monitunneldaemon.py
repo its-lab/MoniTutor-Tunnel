@@ -1,4 +1,5 @@
 import socket
+from clientthread import ClientThread
 from threading import Thread
 
 
@@ -9,30 +10,39 @@ class MoniTunnelDaemon(Thread):
         self._config = {"port": port, "address": address}
         self.__running = False
         self.__socket_open = False
+        self.__thread_list = []
 
     def run(self):
         self.__running = True
         while self.__running:
-            while not self.__socket_open and self.__running:
-                try:
-                    self._open_socket()
-                    self.__socket_open = True
-                except socket.error:
-                    self.__socket_open = False
+            while not self.__socket_open:
+                self._open_socket()
             try:
-                client, client_address = self._socket.accept()
-                client.sendall("Hello student")
-                return True
+                client_socket, client_address = self._socket.accept()
+                self._start_new_client_thread(client_socket)
+                self.__running = False
             except socket.error as err:
                 if err != "timed out":
                     self.__socket_open = False
 
     def _open_socket(self):
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._socket.bind((self._config["address"], self._config["port"]))
-        self._socket.listen(0)
-        self._socket.settimeout(1)
+        try:
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self._socket.bind((self._config["address"], self._config["port"]))
+            self._socket.listen(0)
+            self._socket.settimeout(1)
+            self.__socket_open = True
+        except socket.error:
+            self.__socket_open = False
+
+    def _start_new_client_thread(self, client_socket):
+        client_thread = ClientThread(client_socket)
+        client_thread.start()
+        self.__thread_list.append(client_thread)
 
     def stop(self):
         self.__running = False
+        for thread in self.__thread_list:
+            thread.stop()
+            thread.join()

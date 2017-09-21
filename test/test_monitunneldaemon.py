@@ -26,8 +26,13 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
                 connected = True
             except socket.error:
                 tries -= 1
-        self.assertEqual(client.recv(1024), "Hello student")
-
+        echomsg = "hello world"
+        client.settimeout(2)
+        client.send(echomsg)
+        self.assertEqual(client.recv(1024), echomsg)
+        echomsg = "hello world 2"
+        client.send(echomsg)
+        self.assertEqual(client.recv(1024), echomsg)
 
     def tearDown(self):
         self.monitunnelDaemon.stop()
