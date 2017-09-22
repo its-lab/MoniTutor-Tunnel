@@ -25,12 +25,13 @@ class ClientThread(Thread):
         self.__start_socket_threads()
         while self.__running:
             try:
-                message = self._receive_meassge()
+                message = self._get_next_message()
                 if message and self._message_is_authorized(message):
                     reply_message = self._process_message(message)
                 else:
                     reply_message = self._process_unauthorized_message(message)
-                self._send_message(reply_message)
+                if message:
+                    self._put_message_into_send_queue(reply_message)
             except socket.error as err:
                 pass
 
@@ -43,7 +44,7 @@ class ClientThread(Thread):
     def _process_message(self, message):
         return message
 
-    def _receive_meassge(self):
+    def _get_next_message(self):
         self.__message_inbox_lock.acquire()
         while self.__running:
             serialized_message = self.__message_inbox.get()
@@ -51,7 +52,7 @@ class ClientThread(Thread):
             self.__message_inbox_lock.acquire()
         return False
 
-    def _send_message(self, message):
+    def _put_message_into_send_queue(self, message):
         self.__message_outbox.put(message)
         self.__message_outbox_lock.release()
 
