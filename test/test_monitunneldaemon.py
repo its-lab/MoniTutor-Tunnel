@@ -1,10 +1,11 @@
 import unittest
+import time
 import json
 from mock import patch
 import yaml
 import socket
 from server.monitunneldaemon import MoniTunnelDaemon
-import test.db as db
+from server.db import Db
 
 
 class MoniTunnelDaemonTestCase(unittest.TestCase):
@@ -16,10 +17,11 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
                        "address": ""}
         self.monitunnelDaemon = MoniTunnelDaemon(port=self.config["port"])
         self.monitunnelDaemon.start()
-        session = db.Session()
-        db.Base.metadata.create_all(db.engine)
-        if not session.query(db.Auth_user).filter_by(username="admin").first():
-            session.add(db.Auth_user(username="admin", hmac_secret="secret"))
+        self.database = Db("sqlite://")
+        self.database.base.metadata.create_all(self.database.engine)
+        session_handle = self.database.Session()
+        if not session_handle.query(self.database.Auth_user).filter_by(username="admin").first():
+            session_handle.add(self.database.Auth_user(username="admin", hmac_secret="secret"))
 
     def test_monitunnel_ip_config(self):
         self.assertEqual(self.config, self.monitunnelDaemon._config)
@@ -43,8 +45,8 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         process_message.return_value = echomsg
         client.settimeout(2)
         client.send(echopacket+echopacket)
-        self.assertEqual(client.recv(1024), echomsg)
-        self.assertEqual(client.recv(1024), echomsg)
+        time.sleep(.5)
+        self.assertEqual(client.recv(1024), echomsg+echomsg)
         client.send(echopacket)
         self.assertEqual(client.recv(1024), echomsg)
 
