@@ -42,6 +42,21 @@ class ClientThread(Thread):
         return message
 
     def _process_message(self, message):
+        message = self._strip_authentication_header(message)
+        return message
+
+    def _strip_authentication_header(self, message):
+        try:
+            serialized_message = message["message"]
+            message = json.loads(serialized_message)
+        except ValueError:
+            message = {"message": message["message"],
+                       "error": "No JSON object could be decoded",
+                       "errorcode": 1}
+        except KeyError:
+            message = {"message": message,
+                       "error": "No message object could be found",
+                       "errorcode": 2}
         return message
 
     def _get_next_message(self):

@@ -48,10 +48,19 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         # To only try the client server connection, we'll skip authentication
         is_authorized.return_value = True
         client = self._connect()
-        packet = "\x02"+json.dumps({"body": "test"})+"\x03"
+        message = "This is a test message"
+        packet = "\x02"+json.dumps({"message": json.dumps(message), "HMAC": "empty", "ID": "test"})+"\x03"
         client.send(packet)
         time.sleep(.5)
-        self.assertEqual(client.recv(1024), packet)
+        self.assertEqual(client.recv(1024).strip("\x02\x03"), json.dumps(message))
+        error_packet = "\x02"+json.dumps({"message": "No Json", "HMAC": "empty", "ID": "test"})+"\x03"
+        client.send(error_packet)
+        time.sleep(.5)
+        self.assertEqual(json.loads(client.recv(1024).strip("\x02\x03"))["errorcode"], 1)
+        error_packet = "\x02"+json.dumps({"mes": "No message key", "HMAC": "empty", "ID": "test"})+"\x03"
+        client.send(error_packet)
+        time.sleep(.5)
+        self.assertEqual(json.loads(client.recv(1024).strip("\x02\x03"))["errorcode"], 2)
         del client
 
     def _connect(self):
