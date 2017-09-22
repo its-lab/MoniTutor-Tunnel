@@ -7,7 +7,6 @@ class ClientThreadTestCase(unittest.TestCase):
 
     def setUp(self):
         self.client = ClientThread(" ")
-        pass
 
     def generate_random_string(self, length):
         letters = string.ascii_letters

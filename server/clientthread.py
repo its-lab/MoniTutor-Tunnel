@@ -1,4 +1,5 @@
 from threading import Thread
+import json
 from threading import Semaphore
 from Queue import Queue
 import db
@@ -25,21 +26,28 @@ class ClientThread(Thread):
         while self.__running:
             try:
                 message = self._receive_meassge()
-                if message and self._message_is_auhorized(message):
-                    self._process_message(message)
+                if message and self._message_is_authorized(message):
+                    reply_message = self._process_message(message)
+                else:
+                    reply_message = self._process_unauthorized_message(message)
+                self._send_message(reply_message)
             except socket.error as err:
                 pass
 
     def _message_is_authorized(self, message):
-        return True
+        return False
+
+    def _process_unauthorized_message(self, message):
+        return message
 
     def _process_message(self, message):
-        self._send_message(message)
+        return message
 
     def _receive_meassge(self):
         self.__message_inbox_lock.acquire()
         while self.__running:
-            return self.__message_inbox.get()
+            serialized_message = self.__message_inbox.get()
+            return json.loads(serialized_message)
             self.__message_inbox_lock.acquire()
         return False
 
