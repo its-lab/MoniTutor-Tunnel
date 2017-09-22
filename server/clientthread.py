@@ -78,11 +78,14 @@ class ClientThread(Thread):
             try:
                 chunk = self._socket.recv(512)
                 if chunk == "":
-                    raise socket.error
+                    raise socket.error("empty packet")
             except socket.error as err:
-                self._socket.shutdown(socket.SHUT_RDWR)
-                self.__running = False
-                break
+                if err.message != "empty packet":
+                    continue
+                else:
+                    self._socket.shutdown(socket.SHUT_RDWR)
+                    self.__running = False
+                    break
             messages, chunk_buffer = self._get_message_from_chunks(chunk, chunk_buffer)
             for message in messages:
                 self.__message_inbox.put(message)
@@ -105,5 +108,6 @@ class ClientThread(Thread):
     def __socket_send(self):
         self.__message_outbox_lock.acquire()
         while self.__running:
-            self._socket.send(self.__message_outbox.get())
+            message = "\x02"+json.dumps(self.__message_outbox.get())+"\x03"
+            self._socket.send(message)
             self.__message_outbox_lock.acquire()

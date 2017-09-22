@@ -31,7 +31,31 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
     def test_daemon_newtork_socket(self, is_authorized, process_message):
         # To only try the client server connection, we'll skip authentication
         is_authorized.return_value = True
-        tries = 3
+        client = self._connect()
+        echomsg = "hello world"
+        echopacket = "\x02"+json.dumps({"body": echomsg })+"\x03"
+        # patch the message processing, so that the server echos our request
+        process_message.return_value = echomsg
+        client.send(echopacket+echopacket)
+        time.sleep(.1)
+        self.assertEqual(client.recv(1024), '\x02"'+echomsg+'"\x03\x02"'+echomsg+'"\x03')
+        client.send(echopacket)
+        self.assertEqual(client.recv(1024).strip('\x02\x03"'), echomsg)
+        del client
+
+    @patch("server.clientthread.ClientThread._message_is_authorized")
+    def test_client_message_format(self, is_authorized):
+        # To only try the client server connection, we'll skip authentication
+        is_authorized.return_value = True
+        client = self._connect()
+        packet = "\x02"+json.dumps({"body": "test"})+"\x03"
+        client.send(packet)
+        time.sleep(.5)
+        self.assertEqual(client.recv(1024), packet)
+        del client
+
+    def _connect(self):
+        tries = 5
         connected = False
         while not connected and tries > 0:
             try:
@@ -39,16 +63,13 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
                 connected = True
             except socket.error:
                 tries -= 1
-        echomsg = "hello world"
-        echopacket = "\x02"+json.dumps({"body": echomsg })+"\x03"
-        # patch the message processing, so that the server echos our request
-        process_message.return_value = echomsg
-        client.settimeout(2)
-        client.send(echopacket+echopacket)
-        time.sleep(.5)
-        self.assertEqual(client.recv(1024), echomsg+echomsg)
-        client.send(echopacket)
-        self.assertEqual(client.recv(1024), echomsg)
+        if tries == 0:
+            raise socket.error
+        else:
+            client.settimeout(2)
+            return client
 
     def tearDown(self):
         self.monitunnelDaemon.stop()
+        self.monitunnelDaemon.join()
+        del self.database
