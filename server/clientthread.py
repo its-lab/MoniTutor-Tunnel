@@ -2,14 +2,16 @@ from threading import Thread
 import json
 from threading import Semaphore
 from Queue import Queue
-import db
+from db import Db
 from re import search
 import socket
+import hashlib
+import hmac
 
 
 class ClientThread(Thread):
 
-    def __init__(self, socket):
+    def __init__(self, socket, db_config):
         super(ClientThread, self).__init__()
         self._socket = socket
         self.__message_inbox_lock = Semaphore(0)
@@ -17,6 +19,9 @@ class ClientThread(Thread):
         self.__message_outbox_lock = Semaphore(0)
         self.__message_outbox = Queue()
         self.__thread_list = []
+        self.__username = None
+        self.__hmac_secret = None
+        self.__db_config = db_config
         self.__running = False
 
     def run(self):
@@ -36,7 +41,34 @@ class ClientThread(Thread):
                 pass
 
     def _message_is_authorized(self, message):
-        return False
+        if not self.__username:
+            self.__username = message["ID"]
+            self.__hmac_secret = self._get_hmac_secret(self.__username)
+        message_hmac = hmac.new(str(self.__hmac_secret),
+                                str(message["message"]),
+                                hashlib.sha256).hexdigest()
+        return message["HMAC"] == message_hmac
+
+    def _get_hmac_secret(self, username):
+        database_handle = self.__get_db_handle()
+        hmac_secret =  database_handle.query(Db.Auth_user) \
+            .filter(Db.Auth_user.username == username) \
+                .first() \
+                    .hmac_secret
+        database_handle.close()
+        return hmac_secret
+
+    def __get_db_handle(self):
+        db_engine_string = self.__db_config["engine"]+"://"
+        if self.__db_config["username"] and self.__db_config["password"]:
+            db_engine_string += self.__db_config["username"]+":"+self.__db_config["password"]
+        if self.__db_config["host"]:
+            db_engine_string += "@"+self.__db_config["host"]
+        if self.__db_config["port"]:
+            db_engine_string += ":"+self.__db_config["port"]
+        if self.__db_config["database"]:
+            db_engine_string += "/"+self.__db_config["database"]
+        return Db(db_engine_string).Session()
 
     def _process_unauthorized_message(self, message):
         return message

@@ -6,12 +6,15 @@ from threading import Thread
 
 class MoniTunnelDaemon(Thread):
 
-    def __init__(self, port=13337, address=""):
+    def __init__(self, port=13337, address="", db_host="", db_port="", db_engine="", db_username="", db_password="", db_database=""):
         super(MoniTunnelDaemon, self).__init__()
         self._config = {"port": port, "address": address}
         self.__running = False
         self.__socket_open = False
         self.__thread_list = []
+        self.__db_config = {"host": db_host, "port": db_port,
+                            "engine": db_engine, "username": db_username,
+                            "password": db_password, "database": db_database}
 
     def run(self):
         self.__running = True
@@ -42,7 +45,7 @@ class MoniTunnelDaemon(Thread):
             time.sleep(1)
 
     def _start_new_client_thread(self, client_socket):
-        client_thread = ClientThread(client_socket)
+        client_thread = ClientThread(client_socket, self.__db_config)
         client_thread.start()
         self.__thread_list.append(client_thread)
 

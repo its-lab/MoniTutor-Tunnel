@@ -19,13 +19,18 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         app_config = yaml.load(config_file)
         self.config = {"port": app_config.get("monitunnel_port"),
                        "address": ""}
-        self.monitunnelDaemon = MoniTunnelDaemon(port=self.config["port"])
+        self.monitunnelDaemon = MoniTunnelDaemon(port=self.config["port"], db_engine="sqlite", db_database="test.db")
         self.monitunnelDaemon.start()
-        self.database = Db("sqlite://")
+        self.database = Db("sqlite:///test.db")
         self.database.base.metadata.create_all(self.database.engine)
         session_handle = self.database.Session()
         if not session_handle.query(self.database.Auth_user).filter_by(username=self.username).first():
+            session_handle.begin()
             session_handle.add(self.database.Auth_user(username=self.username, hmac_secret= self.hmac_secret))
+            session_handle.commit()
+        session_handle.flush()
+        session_handle.close_all()
+        del session_handle
 
     def test_monitunnel_ip_config(self):
         self.assertEqual(self.config, self.monitunnelDaemon._config)
