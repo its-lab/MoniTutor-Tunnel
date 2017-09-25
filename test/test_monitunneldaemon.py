@@ -35,21 +35,22 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
     def test_monitunnel_ip_config(self):
         self.assertEqual(self.config, self.monitunnelDaemon._config)
 
-    @patch("server.clientthread.ClientThread._process_message")
+    @patch("server.clientthread.ClientThread._strip_authentication_header")
     @patch("server.clientthread.ClientThread._message_is_authorized")
-    def test_daemon_newtork_socket(self, is_authorized, process_message):
+    def test_daemon_newtork_socket(self, is_authorized, strip_header):
         # To only try the client server connection, we'll skip authentication
         is_authorized.return_value = True
         client = self._connect()
         echomsg = "hello world"
-        echopacket = "\x02"+json.dumps({"body": echomsg })+"\x03"
-        # patch the message processing, so that the server echos our request
-        process_message.return_value = echomsg
+        message = {"message": {"method": "echo","body": echomsg }}
+        # patch the auth header removal function to skip auth
+        strip_header.return_value = message["message"]
+        echopacket = "\x02"+json.dumps(message)+"\x03"
         client.send(echopacket+echopacket)
         time.sleep(.1)
-        self.assertEqual(client.recv(1024), '\x02"'+echomsg+'"\x03\x02"'+echomsg+'"\x03')
+        self.assertEqual(client.recv(1024), echopacket+echopacket)
         client.send(echopacket)
-        self.assertEqual(client.recv(1024).strip('\x02\x03"'), echomsg)
+        self.assertEqual(client.recv(1024), echopacket)
         del client
 
     @patch("server.clientthread.ClientThread._message_is_authorized")
@@ -57,30 +58,31 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         # To only try the client server connection, we'll skip authentication
         is_authorized.return_value = True
         client = self._connect()
-        message = "This is a test message"
+        message = {"method": "echo", "body": "This is a test message"}
         packet = "\x02"+json.dumps({"message": json.dumps(message), "HMAC": "empty", "ID": "test"})+"\x03"
         client.send(packet)
         time.sleep(.5)
-        self.assertEqual(client.recv(1024).strip("\x02\x03"), json.dumps(message))
+        self.assertEqual(client.recv(1024).strip("\x02\x03"), json.dumps({"message": message}))
+
         error_packet = "\x02"+json.dumps({"message": "No Json", "HMAC": "empty", "ID": "test"})+"\x03"
         client.send(error_packet)
         time.sleep(.5)
-        self.assertEqual(json.loads(client.recv(1024).strip("\x02\x03"))["errorcode"], 1)
+        self.assertEqual(json.loads(client.recv(1024).strip("\x02\x03"))["message"]["errorcode"], 1)
         error_packet = "\x02"+json.dumps({"mes": "No message key", "HMAC": "empty", "ID": "test"})+"\x03"
         client.send(error_packet)
         time.sleep(.5)
-        self.assertEqual(json.loads(client.recv(1024).strip("\x02\x03"))["errorcode"], 2)
+        self.assertEqual(json.loads(client.recv(1024).strip("\x02\x03"))["message"]["errorcode"], 2)
         del client
 
-    @patch("server.clientthread.ClientThread._process_message")
-    def test_client_authentication(self, process_message):
+    def test_client_authentication(self):
         client = self._connect()
         echomsg = "authenticated"
-        process_message.return_value = echomsg
-        hmac = self.get_hmac(echomsg)
-        echopacket = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": echomsg })+"\x03"
+        message = {"method": "echo","body": echomsg}
+        hmac = self.get_hmac(json.dumps(message))
+        echopacket = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
         client.send(echopacket)
-        self.assertEqual(client.recv(1024).strip('\x02\x03"'), echomsg)
+        self.assertEqual(client.recv(1024).strip('\x02\x03"'), json.dumps({"message": message}))
+        del client
 
     def get_hmac(self, message):
         return hmac.new( self.hmac_secret, str(message), hashlib.sha256).hexdigest()

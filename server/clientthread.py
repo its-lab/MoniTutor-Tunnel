@@ -27,21 +27,7 @@ class ClientThread(Thread):
     def run(self):
         self.__running = True
         self._socket.settimeout(2)
-        self.__start_socket_threads()
-        while self.__running:
-            try:
-                message = self._get_next_message()
-                if message:
-                    if self._message_is_authorized(message):
-                        reply_message = self._process_message(message)
-                    else :
-                        reply_message = self._process_unauthorized_message(message)
-                        self.stop()
-                    if message:
-                        self._put_message_into_send_queue(reply_message)
-            except socket.error as err:
-                pass
-
+        self.__start_message_processing_threads()
 
     def _message_is_authorized(self, message):
         if not self.__username:
@@ -75,31 +61,53 @@ class ClientThread(Thread):
 
     def _process_unauthorized_message(self, message):
         message["message"] = "Not authorized"
-        return message
+        self._put_message_into_send_queue(message)
+        return True
 
     def _process_message(self, message):
         message = self._strip_authentication_header(message)
-        return message
+        try:
+            if message["method"] == "echo" or message["method"] == "error":
+                self._put_message_into_send_queue({"message": message})
+        except TypeError:
+            message = {
+                       "method": "error",
+                       "body": "message contains unexpected type",
+                       "errorcode": 3}
+            self._put_message_into_send_queue(message)
+        return True
 
     def _strip_authentication_header(self, message):
         try:
             serialized_message = message["message"]
             message = json.loads(serialized_message)
         except ValueError:
-            message = {"message": message["message"],
-                       "error": "No JSON object could be decoded",
+            message = {
+                       "method": "error",
+                       "body": "No JSON object could be decoded",
                        "errorcode": 1}
         except KeyError:
-            message = {"message": message,
-                       "error": "No message object could be found",
+            message = {
+                       "method": "error",
+                       "body": "No message object could be found",
                        "errorcode": 2}
+        except TypeError:
+            message = {
+                       "method": "error",
+                       "body": "message contains unexpected type",
+                       "errorcode": 3}
         return message
 
-    def _get_next_message(self):
+    def __process_inbox(self):
         self.__message_inbox_lock.acquire()
         while self.__running:
             serialized_message = self.__message_inbox.get()
-            return json.loads(serialized_message)
+            message = json.loads(serialized_message)
+            if self._message_is_authorized(message):
+                self._process_message(message)
+            else:
+                self._process_unauthorized_message(message)
+                self.stop()
             self.__message_inbox_lock.acquire()
         return False
 
@@ -113,9 +121,10 @@ class ClientThread(Thread):
         self.__message_inbox_lock.release()
         self.__stop_socket_threads()
 
-    def __start_socket_threads(self):
+    def __start_message_processing_threads(self):
         self.__thread_list.append(Thread(target=self.__socket_receive, name="socket_receive"))
         self.__thread_list.append(Thread(target=self.__socket_send, name="socket_receive"))
+        self.__thread_list.append(Thread(target=self.__process_inbox, name="process_inbox"))
         for thread in self.__thread_list:
             thread.start()
 
