@@ -4,6 +4,8 @@ import json
 from mock import patch
 import yaml
 import socket
+import hashlib
+import hmac
 from server.monitunneldaemon import MoniTunnelDaemon
 from server.db import Db
 
@@ -64,6 +66,19 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         time.sleep(.5)
         self.assertEqual(json.loads(client.recv(1024).strip("\x02\x03"))["errorcode"], 2)
         del client
+
+    @patch("server.clientthread.ClientThread._process_message")
+    def test_client_authentication(self, process_message):
+        client = self._connect()
+        echomsg = "authenticated"
+        process_message.return_value = echomsg
+        hmac = self.get_hmac(echomsg)
+        echopacket = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": echomsg })+"\x03"
+        client.send(echopacket)
+        self.assertEqual(client.recv(1024).strip('\x02\x03"'), echomsg)
+
+    def get_hmac(self, message):
+        return hmac.new( self.hmac_secret, str(message), hashlib.sha256).hexdigest()
 
     def _connect(self):
         tries = 5
