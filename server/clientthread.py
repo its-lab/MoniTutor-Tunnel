@@ -31,14 +31,17 @@ class ClientThread(Thread):
         while self.__running:
             try:
                 message = self._get_next_message()
-                if message and self._message_is_authorized(message):
-                    reply_message = self._process_message(message)
-                else:
-                    reply_message = self._process_unauthorized_message(message)
                 if message:
-                    self._put_message_into_send_queue(reply_message)
+                    if self._message_is_authorized(message):
+                        reply_message = self._process_message(message)
+                    else :
+                        reply_message = self._process_unauthorized_message(message)
+                        self.stop()
+                    if message:
+                        self._put_message_into_send_queue(reply_message)
             except socket.error as err:
                 pass
+
 
     def _message_is_authorized(self, message):
         if not self.__username:
@@ -71,6 +74,7 @@ class ClientThread(Thread):
         return Db(db_engine_string).Session()
 
     def _process_unauthorized_message(self, message):
+        message["message"] = "Not authorized"
         return message
 
     def _process_message(self, message):
