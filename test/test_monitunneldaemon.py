@@ -8,6 +8,7 @@ import hashlib
 import hmac
 from server.monitunneldaemon import MoniTunnelDaemon
 from server.db import Db
+import pika
 
 
 class MoniTunnelDaemonTestCase(unittest.TestCase):
@@ -15,11 +16,20 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
     def setUp(self):
         config_file = open("./test/appconfig.yml")
         self.username = "admin"
+        self.hostname = "itsclient"
         self.hmac_secret = "secret"
         app_config = yaml.load(config_file)
         self.config = {"port": app_config.get("monitunnel_port"),
                        "address": ""}
-        self.monitunnelDaemon = MoniTunnelDaemon(port=self.config["port"], db_engine="sqlite", db_database="test.db")
+        self.config_rabbit = {"rabbit_host": app_config.get("rabbitmq_host"),
+                              "result_exchange": app_config.get("result_exchange"),
+                              "task_exchange": app_config.get("task_exchange")}
+        self.monitunnelDaemon = MoniTunnelDaemon(
+                port=self.config["port"],
+                db_engine="sqlite",
+                db_database="test.db",
+                rabbit_task_exchange=self.config_rabbit["task_exchange"],
+                rabbit_host=self.config_rabbit["rabbit_host"])
         self.monitunnelDaemon.start()
         self.database = Db("sqlite:///test.db")
         self.database.base.metadata.create_all(self.database.engine)
@@ -31,6 +41,30 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         session_handle.flush()
         session_handle.close_all()
         del session_handle
+        self.rabbitConnection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=self.config_rabbit["rabbit_host"]))
+        self.rabbitChannel = self.rabbitConnection.channel()
+        self.rabbitChannel.exchange_declare(
+            exchange=self.config_rabbit["task_exchange"],
+            exchange_type='topic')
+
+    def test_send_task_to_client(self):
+        client = self._connect()
+        message = {"method": "auth","body": self.hostname}
+        hmac = self.get_hmac(json.dumps(message))
+        packet = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
+        client.send(packet)
+        task = {"program": "test_check.sh",
+                "interpreter_path": "/bin/bash",
+                "params": "/etc/hosts"}
+        task_json = json.dumps(task)
+        self.rabbitChannel.basic_publish(
+            exchange=self.config_rabbit["task_exchange"],
+            routing_key=self.username+"."+self.hostname,
+            body=task_json)
+        response = json.loads(client.recv(1024).strip("\x02\x03"))
+        self.assertEqual(response["message"]["body"], task)
+        del client
 
     def test_monitunnel_ip_config(self):
         self.assertEqual(self.config, self.monitunnelDaemon._config)

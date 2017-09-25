@@ -7,11 +7,12 @@ from re import search
 import socket
 import hashlib
 import hmac
+import pika
 
 
 class ClientThread(Thread):
 
-    def __init__(self, socket, db_config, rabbit_config):
+    def __init__(self, socket, db_config="", rabbit_config=""):
         super(ClientThread, self).__init__()
         self._socket = socket
         self.__message_inbox_lock = Semaphore(0)
@@ -24,6 +25,7 @@ class ClientThread(Thread):
         self.__db_config = db_config
         self.__rabbit_config = rabbit_config
         self.__running = False
+        self.__connected_to_task_queue = False
 
     def run(self):
         self.__running = True
@@ -70,13 +72,25 @@ class ClientThread(Thread):
         try:
             if message["method"] == "echo" or message["method"] == "error":
                 self._put_message_into_send_queue(message)
-        except TypeError:
+            elif message["method"] == "auth":
+                self._identifier = self.__username+"."+str(message["body"])
+                self.__connected_to_task_queue = True
+                Thread(target=self.__consume_tasks(), name="rabbit_consumer")
+        except TypeError as err:
             message = {
                        "method": "error",
                        "body": "message contains unexpected type",
                        "errorcode": 3}
             self._put_message_into_send_queue(message)
         return True
+
+    def __consume_tasks(self):
+        while self.__running:
+            self._connect_to_task_queue()
+            try:
+                self._rabbit_channel.start_consuming()
+            except AttributeError:
+                pass
 
     def _strip_authentication_header(self, message):
         try:
@@ -120,6 +134,11 @@ class ClientThread(Thread):
         self.__running = False
         self.__message_outbox_lock.release()
         self.__message_inbox_lock.release()
+        if self.__connected_to_task_queue:
+            try:
+                self._rabbit_connection.close()
+            except AttributeError:
+                pass
         self.__stop_socket_threads()
 
     def __start_message_processing_threads(self):
@@ -170,5 +189,31 @@ class ClientThread(Thread):
         self.__message_outbox_lock.acquire()
         while self.__running:
             message = "\x02"+json.dumps({"message": self.__message_outbox.get()})+"\x03"
-            self._socket.send(message)
-            self.__message_outbox_lock.acquire()
+            try:
+                self._socket.send(message)
+                self.__message_outbox_lock.acquire()
+            except socket.error:
+                self.__running = False
+
+    def _process_task(self, channel, method, properties, body_json):
+        task = json.loads(body_json)
+        message = {"method": "task", "body": task}
+        self._put_message_into_send_queue(message)
+
+    def _connect_to_task_queue(self):
+        self._rabbit_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=self.__rabbit_config["host"]))
+        self._rabbit_channel = self._rabbit_connection.channel()
+        self._rabbit_channel.exchange_declare(
+            exchange=self.__rabbit_config["task_exchange"],
+            exchange_type="topic")
+        self._task_queue = self._rabbit_channel.queue_declare(
+            queue=self._identifier,
+            durable=True)
+        self._rabbit_channel.queue_bind(
+            exchange=self.__rabbit_config["task_exchange"],
+            queue=self._identifier,
+            routing_key=self._identifier)
+        self._rabbit_channel.basic_consume(
+            self._process_task,
+            queue=self._identifier)
