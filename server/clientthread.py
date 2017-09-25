@@ -69,7 +69,7 @@ class ClientThread(Thread):
         message = self._strip_authentication_header(message)
         try:
             if message["method"] == "echo" or message["method"] == "error":
-                self._put_message_into_send_queue({"message": message})
+                self._put_message_into_send_queue(message)
         except TypeError:
             message = {
                        "method": "error",
@@ -169,6 +169,6 @@ class ClientThread(Thread):
     def __socket_send(self):
         self.__message_outbox_lock.acquire()
         while self.__running:
-            message = "\x02"+json.dumps(self.__message_outbox.get())+"\x03"
+            message = "\x02"+json.dumps({"message": self.__message_outbox.get()})+"\x03"
             self._socket.send(message)
             self.__message_outbox_lock.acquire()
