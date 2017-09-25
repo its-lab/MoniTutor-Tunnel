@@ -11,7 +11,7 @@ import hmac
 
 class ClientThread(Thread):
 
-    def __init__(self, socket, db_config):
+    def __init__(self, socket, db_config, rabbit_config):
         super(ClientThread, self).__init__()
         self._socket = socket
         self.__message_inbox_lock = Semaphore(0)
@@ -22,6 +22,7 @@ class ClientThread(Thread):
         self.__username = None
         self.__hmac_secret = None
         self.__db_config = db_config
+        self.__rabbit_config = rabbit_config
         self.__running = False
 
     def run(self):

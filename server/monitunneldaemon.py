@@ -6,7 +6,17 @@ from threading import Thread
 
 class MoniTunnelDaemon(Thread):
 
-    def __init__(self, port=13337, address="", db_host="", db_port="", db_engine="", db_username="", db_password="", db_database=""):
+    def __init__(self, port=13337,
+                       address="",
+                       db_host="",
+                       db_port="",
+                       db_engine="",
+                       db_username="",
+                       db_password="",
+                       db_database="",
+                       rabbit_host="127.0.0.1",
+                       rabbit_task_exchange="",
+                       rabbit_result_exchange=""):
         super(MoniTunnelDaemon, self).__init__()
         self._config = {"port": port, "address": address}
         self.__running = False
@@ -15,6 +25,9 @@ class MoniTunnelDaemon(Thread):
         self.__db_config = {"host": db_host, "port": db_port,
                             "engine": db_engine, "username": db_username,
                             "password": db_password, "database": db_database}
+        self.__rabbit_config = {"host": rabbit_host,
+                                "task_exchange": rabbit_task_exchange,
+                                "result_exchange": rabbit_result_exchange}
 
     def run(self):
         self.__running = True
@@ -45,7 +58,7 @@ class MoniTunnelDaemon(Thread):
             time.sleep(1)
 
     def _start_new_client_thread(self, client_socket):
-        client_thread = ClientThread(client_socket, self.__db_config)
+        client_thread = ClientThread(client_socket, self.__db_config, self.__rabbit_config)
         client_thread.start()
         self.__thread_list.append(client_thread)
 
