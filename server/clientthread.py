@@ -122,9 +122,10 @@ class ClientThread(Thread):
                 self._process_message(message)
             else:
                 self._process_unauthorized_message(message)
-                self.stop()
+                self.__running = False
+                self.__wake_up_threads()
+                break
             self.__message_inbox_lock.acquire()
-        return False
 
     def _put_message_into_send_queue(self, message):
         self.__message_outbox.put(message)
@@ -134,12 +135,9 @@ class ClientThread(Thread):
         self.__running = False
         self.__message_outbox_lock.release()
         self.__message_inbox_lock.release()
-        if self.__connected_to_task_queue:
-            try:
-                self._rabbit_connection.close()
-            except AttributeError:
-                pass
         self.__stop_socket_threads()
+        if self.__connected_to_task_queue:
+            self._close_rabbit_connection()
 
     def __start_message_processing_threads(self):
         self.__thread_list.append(Thread(target=self.__socket_receive, name="socket_receive"))
@@ -165,6 +163,7 @@ class ClientThread(Thread):
                 else:
                     self._socket.shutdown(socket.SHUT_RDWR)
                     self.__running = False
+                    self.__wake_up_threads()
                     break
             messages, chunk_buffer = self._get_message_from_chunks(chunk, chunk_buffer)
             for message in messages:
@@ -194,6 +193,7 @@ class ClientThread(Thread):
                 self.__message_outbox_lock.acquire()
             except socket.error:
                 self.__running = False
+                self.__wake_up_threads()
 
     def _process_task(self, channel, method, properties, body_json):
         task = json.loads(body_json)
@@ -203,6 +203,7 @@ class ClientThread(Thread):
     def _connect_to_task_queue(self):
         self._rabbit_connection = pika.BlockingConnection(
             pika.ConnectionParameters(host=self.__rabbit_config["host"]))
+        self._rabbit_connection.add_timeout(3, self._close_rabbit_connection)
         self._rabbit_channel = self._rabbit_connection.channel()
         self._rabbit_channel.exchange_declare(
             exchange=self.__rabbit_config["task_exchange"],
@@ -217,3 +218,13 @@ class ClientThread(Thread):
         self._rabbit_channel.basic_consume(
             self._process_task,
             queue=self._identifier)
+
+    def _close_rabbit_connection(self):
+        if self.__connected_to_task_queue:
+            self._rabbit_connection.close()
+            self.__connected_to_task_queue = False
+
+    def __wake_up_threads(self):
+        self.__message_inbox_lock.release()
+        self.__message_outbox_lock.release()
+        self._close_rabbit_connection()
