@@ -42,7 +42,7 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         session_handle.close_all()
         del session_handle
 
-    def test_send_task_to_client(self):
+    def test_send_task_to_client_and_fetch_result_from_resultqueue(self):
         client = self._connect()
         message = {"method": "auth","body": self.hostname}
         hmac = self.get_hmac(json.dumps(message))
@@ -50,9 +50,10 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         client.send(packet)
         task = {"program": "test_check.sh",
                 "interpreter_path": "/bin/bash",
-                "params": "/etc/hosts"}
+                "params": "/etc/hosts",
+                "name": "test_check"}
         task_json = json.dumps(task)
-        rabbitChannel, tabbitConnection = self.get_rabbit()
+        rabbitChannel, tabbitConnection = self.get_rabbit("task_exchange")
         rabbitChannel.basic_publish(
             exchange=self.config_rabbit["task_exchange"],
             routing_key=self.username+"."+self.hostname,
@@ -62,6 +63,27 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         self.assertEqual(response["message"]["body"], task)
         self.assertEqual(response["message"]["correlation_id"], "1")
         rabbitChannel.close()
+        time_now = int(time.time())
+        result = {"time": str(time_now),
+                  "severity_code": 1,
+                  "message": "This is a test",
+                  "name": "test_check"
+                 }
+        message = {"method": "result","body": result}
+        hmac = self.get_hmac(json.dumps(message))
+        packet = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
+        client.send(packet)
+        rabbitChannel, rabbitConnection = self.get_rabbit("result_exchange")
+        result_queue = rabbitChannel.queue_declare(exclusive=True)
+        rabbitChannel.queue_bind(
+                exchange=self.config_rabbit["result_exchange"],
+                queue = result_queue.method.queue,
+                routing_key = self.username+"."+self.hostname
+                )
+        time.sleep(1)
+        result = rabbitChannel.basic_get(result_queue.method.queue)
+        self.assertNotEqual(result, (None,None,None))
+        print result
         del client
 
     def test_monitunnel_ip_config(self):
@@ -134,12 +156,12 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
             client.settimeout(2)
             return client
 
-    def get_rabbit(self):
+    def get_rabbit(self, exchange_name):
         rabbitConnection = pika.BlockingConnection(
             pika.ConnectionParameters(host=self.config_rabbit["rabbit_host"]))
         rabbitChannel = rabbitConnection.channel()
         rabbitChannel.exchange_declare(
-            exchange=self.config_rabbit["task_exchange"],
+            exchange=self.config_rabbit[exchange_name],
             exchange_type='topic')
         return (rabbitChannel, rabbitConnection)
 
