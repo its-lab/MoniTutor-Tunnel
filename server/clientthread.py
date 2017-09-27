@@ -125,8 +125,9 @@ class ClientThread(Thread):
                 self._process_message(message)
             else:
                 self._process_unauthorized_message(message)
-                self.__running = False
-                self.__wake_up_threads()
+                if self.__running:
+                    self.__running = False
+                    self.__wake_up_threads()
                 break
             self.__message_inbox_lock.acquire()
 
@@ -165,8 +166,9 @@ class ClientThread(Thread):
                     continue
                 else:
                     self._socket.shutdown(socket.SHUT_RDWR)
-                    self.__running = False
-                    self.__wake_up_threads()
+                    if self.__running:
+                        self.__running = False
+                        self.__wake_up_threads()
                     break
             messages, chunk_buffer = self._get_message_from_chunks(chunk, chunk_buffer)
             for message in messages:
@@ -195,8 +197,9 @@ class ClientThread(Thread):
                 self._socket.send(message)
                 self.__message_outbox_lock.acquire()
             except socket.error:
-                self.__running = False
-                self.__wake_up_threads()
+                if self.__running:
+                    self.__running = False
+                    self.__wake_up_threads()
 
     def _process_task(self, channel, method, properties, body_json):
         task = json.loads(body_json)
