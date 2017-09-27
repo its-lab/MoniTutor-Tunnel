@@ -29,6 +29,7 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
                 db_engine="sqlite",
                 db_database="test.db",
                 rabbit_task_exchange=self.config_rabbit["task_exchange"],
+                rabbit_result_exchange=self.config_rabbit["result_exchange"],
                 rabbit_host=self.config_rabbit["rabbit_host"])
         self.monitunnelDaemon.start()
         self.database = Db("sqlite:///test.db")
@@ -53,7 +54,7 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
                 "params": "/etc/hosts",
                 "name": "test_check"}
         task_json = json.dumps(task)
-        rabbitChannel, tabbitConnection = self.get_rabbit("task_exchange")
+        rabbitChannel, tabbitConnection = self.get_rabbit(self.config_rabbit["task_exchange"])
         rabbitChannel.basic_publish(
             exchange=self.config_rabbit["task_exchange"],
             routing_key=self.username+"."+self.hostname,
@@ -72,18 +73,20 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         message = {"method": "result","body": result}
         hmac = self.get_hmac(json.dumps(message))
         packet = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
-        client.send(packet)
-        rabbitChannel, rabbitConnection = self.get_rabbit("result_exchange")
+        rabbitChannel, rabbitConnection = self.get_rabbit(self.config_rabbit["result_exchange"])
         result_queue = rabbitChannel.queue_declare(exclusive=True)
         rabbitChannel.queue_bind(
                 exchange=self.config_rabbit["result_exchange"],
                 queue = result_queue.method.queue,
                 routing_key = self.username+"."+self.hostname
                 )
+        client.send(packet)
         time.sleep(1)
-        result = rabbitChannel.basic_get(result_queue.method.queue)
-        self.assertNotEqual(result, (None,None,None))
-        print result
+        get_ok, properties, result_from_queue = rabbitChannel.basic_get(result_queue.method.queue)
+        self.assertNotEqual(result, None)
+        result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
+        result["hostname"] = self.username +"."+self.hostname
+        self.assertEqual(result_from_queue,json.dumps(result))
         del client
 
     def test_monitunnel_ip_config(self):
@@ -161,7 +164,7 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
             pika.ConnectionParameters(host=self.config_rabbit["rabbit_host"]))
         rabbitChannel = rabbitConnection.channel()
         rabbitChannel.exchange_declare(
-            exchange=self.config_rabbit[exchange_name],
+            exchange=exchange_name,
             exchange_type='topic')
         return (rabbitChannel, rabbitConnection)
 

@@ -25,7 +25,9 @@ class ClientThread(Thread):
         self.__db_config = db_config
         self.__rabbit_config = rabbit_config
         self.__running = False
-        self.__connected_to_task_queue = False
+        self._connected_to_rabbit_mq = False
+        self._connected_to_task_queue = False
+        self._connected_to_result_queue = False
 
     def run(self):
         self.__running = True
@@ -74,11 +76,19 @@ class ClientThread(Thread):
                 self._put_message_into_send_queue(message)
             elif message["method"] == "auth":
                 self._identifier = self.__username+"."+str(message["body"])
-                self.__connected_to_task_queue = True
-                self._task_queue_connection_thread = Thread(
-                    target=self.__consume_tasks(),
-                    name="rabbit_consumer"
-                    )
+                if not self._connected_to_task_queue:
+                    self._connected_to_task_queue = True
+                    self._task_queue_connection_thread = Thread(
+                        target=self.__consume_tasks,
+                        name="rabbit_consumer"
+                        )
+                    self._task_queue_connection_thread.start()
+            elif message["method"] == "result":
+                result = message["body"]
+                result["hostname"] = self._identifier
+                result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
+                self._publish_result(result)
+
         except TypeError as err:
             message = {
                        "method": "error",
@@ -86,6 +96,15 @@ class ClientThread(Thread):
                        "errorcode": 3}
             self._put_message_into_send_queue(message)
         return True
+
+    def _publish_result(self, result):
+        if not self._connected_to_result_queue:
+            self._connect_to_result_queue()
+        self._result_channel.basic_publish(
+            exchange=self.__rabbit_config["result_exchange"],
+            routing_key=self._identifier,
+            body=json.dumps(result)
+            )
 
     def __consume_tasks(self):
         while self.__running:
@@ -140,7 +159,7 @@ class ClientThread(Thread):
         self.__message_outbox_lock.release()
         self.__message_inbox_lock.release()
         self.__stop_socket_threads()
-        if self.__connected_to_task_queue:
+        if self._connected_to_rabbit_mq:
             self._close_rabbit_connection()
 
     def __start_message_processing_threads(self):
@@ -207,10 +226,14 @@ class ClientThread(Thread):
         self._put_message_into_send_queue(message)
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
+    def _connect_to_rabbit_mq(self):
+            rabbit_connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=self.__rabbit_config["host"]))
+            rabbit_connection.add_timeout(3, self._close_rabbit_connection)
+            return rabbit_connection
+
     def _connect_to_task_queue(self):
-        self._rabbit_connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=self.__rabbit_config["host"]))
-        self._rabbit_connection.add_timeout(3, self._close_rabbit_connection)
+        self._rabbit_connection = self._connect_to_rabbit_mq()
         self._rabbit_channel = self._rabbit_connection.channel()
         self._rabbit_channel.exchange_declare(
             exchange=self.__rabbit_config["task_exchange"],
@@ -226,10 +249,21 @@ class ClientThread(Thread):
             self._process_task,
             queue=self._identifier)
 
+    def _connect_to_result_queue(self):
+        self._rabbit_result_connection = self._connect_to_rabbit_mq()
+        self._result_channel = self._rabbit_result_connection.channel()
+        self._result_channel.exchange_declare(
+            exchange=self.__rabbit_config["result_exchange"],
+            exchange_type="topic")
+        self._connected_to_result_queue = True
+
     def _close_rabbit_connection(self):
-        if self.__connected_to_task_queue:
+        if self._connected_to_task_queue:
             self._rabbit_connection.close()
-            self.__connected_to_task_queue = False
+            self._connected_to_task_queue = False
+        if self.__connected_to_result_queue:
+            self._rabbit_result_connection.close()
+            self.__connected_to_result_queue = False
 
     def __wake_up_threads(self):
         self.__message_inbox_lock.release()
