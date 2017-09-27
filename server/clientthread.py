@@ -197,8 +197,9 @@ class ClientThread(Thread):
 
     def _process_task(self, channel, method, properties, body_json):
         task = json.loads(body_json)
-        message = {"method": "task", "body": task}
+        message = {"method": "task", "body": task, "correlation_id": properties.correlation_id}
         self._put_message_into_send_queue(message)
+        channel.basic_ack(delivery_tag=method.delivery_tag)
 
     def _connect_to_task_queue(self):
         self._rabbit_connection = pika.BlockingConnection(

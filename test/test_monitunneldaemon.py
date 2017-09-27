@@ -41,12 +41,6 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         session_handle.flush()
         session_handle.close_all()
         del session_handle
-        self.rabbitConnection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=self.config_rabbit["rabbit_host"]))
-        self.rabbitChannel = self.rabbitConnection.channel()
-        self.rabbitChannel.exchange_declare(
-            exchange=self.config_rabbit["task_exchange"],
-            exchange_type='topic')
 
     def test_send_task_to_client(self):
         client = self._connect()
@@ -58,12 +52,20 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
                 "interpreter_path": "/bin/bash",
                 "params": "/etc/hosts"}
         task_json = json.dumps(task)
-        self.rabbitChannel.basic_publish(
+        rabbitConnection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=self.config_rabbit["rabbit_host"]))
+        rabbitChannel = rabbitConnection.channel()
+        rabbitChannel.exchange_declare(
+            exchange=self.config_rabbit["task_exchange"],
+            exchange_type='topic')
+        rabbitChannel.basic_publish(
             exchange=self.config_rabbit["task_exchange"],
             routing_key=self.username+"."+self.hostname,
+            properties=pika.BasicProperties(reply_to="asdf", content_type="application/json", correlation_id="1"),
             body=task_json)
         response = json.loads(client.recv(1024).strip("\x02\x03"))
         self.assertEqual(response["message"]["body"], task)
+        self.assertEqual(response["message"]["correlation_id"], "1")
         del client
 
     def test_monitunnel_ip_config(self):
