@@ -65,7 +65,6 @@ class ClientThread(Thread):
         return Db(db_engine_string).Session()
 
     def _process_unauthorized_message(self, message):
-        message["message"] = "Not authorized"
         self._put_message_into_send_queue(message)
         return True
 
@@ -144,10 +143,6 @@ class ClientThread(Thread):
                 self._process_message(message)
             else:
                 self._process_unauthorized_message(message)
-                if self.__running:
-                    self.__running = False
-                    self.__wake_up_threads()
-                break
             self.__message_inbox_lock.acquire()
 
     def _put_message_into_send_queue(self, message):
