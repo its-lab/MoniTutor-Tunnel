@@ -43,10 +43,10 @@ class ClientThread(Thread):
 
     def _get_hmac_secret(self, username):
         database_handle = self.__get_db_handle()
-        hmac_secret =  database_handle.query(Db.Auth_user) \
+        hmac_secret = database_handle.query(Db.Auth_user) \
             .filter(Db.Auth_user.username == username) \
-                .first() \
-                    .hmac_secret
+            .first() \
+            .hmac_secret
         database_handle.close()
         return hmac_secret
 
@@ -75,7 +75,10 @@ class ClientThread(Thread):
             elif message["method"] == "auth":
                 self._identifier = self.__username+"."+str(message["body"])
                 self.__connected_to_task_queue = True
-                Thread(target=self.__consume_tasks(), name="rabbit_consumer")
+                self._task_queue_connection_thread = Thread(
+                    target=self.__consume_tasks(),
+                    name="rabbit_consumer"
+                    )
         except TypeError as err:
             message = {
                        "method": "error",
