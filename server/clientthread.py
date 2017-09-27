@@ -8,6 +8,7 @@ import socket
 import hashlib
 import hmac
 import pika
+import logging
 
 
 class ClientThread(Thread):
@@ -32,12 +33,15 @@ class ClientThread(Thread):
     def run(self):
         self.__running = True
         self._socket.settimeout(2)
+        logging.debug("Clientthread started. Socket timeout set to 2 sec.")
         self.__start_message_processing_threads()
 
     def _message_is_authorized(self, message):
         if not self.__username:
             self.__username = message["ID"]
+            logging.debug("Fetching hmac_secret of user "+message["ID"])
             self.__hmac_secret = self._get_hmac_secret(self.__username)
+            logging.debug("hmac_secret of user "+message["ID"]+ " is "+self.__hmac_secret)
         message_hmac = hmac.new(str(self.__hmac_secret),
                                 str(message["message"]),
                                 hashlib.sha256).hexdigest()
@@ -66,7 +70,6 @@ class ClientThread(Thread):
 
     def _process_unauthorized_message(self, message):
         self._put_message_into_send_queue(message)
-        return True
 
     def _process_message(self, message):
         message = self._strip_authentication_header(message)
@@ -75,12 +78,13 @@ class ClientThread(Thread):
                 self._put_message_into_send_queue(message)
             elif message["method"] == "auth":
                 self._identifier = self.__username+"."+str(message["body"])
+                logging.debug("auth message received. Change identifier to"+str(self._identifier))
                 if not self._connected_to_task_queue:
                     self._connected_to_task_queue = True
                     self._task_queue_connection_thread = Thread(
                         target=self.__consume_tasks,
-                        name="rabbit_consumer"
-                        )
+                        name="rabbit_consumer")
+                    logging.debug("Starting queue connection thread")
                     self._task_queue_connection_thread.start()
             elif message["method"] == "result":
                 result = message["body"]
@@ -93,12 +97,14 @@ class ClientThread(Thread):
                        "method": "error",
                        "body": "message contains unexpected type",
                        "errorcode": 3}
+            logging.exception("Error while processing message")
             self._put_message_into_send_queue(message)
         return True
 
     def _publish_result(self, result):
         if not self._connected_to_result_queue:
             self._connect_to_result_queue()
+        logging.debug("Publish result: "+str(result)+" to "+self._identifier)
         self._result_channel.basic_publish(
             exchange=self.__rabbit_config["result_exchange"],
             routing_key=self._identifier,
@@ -122,16 +128,19 @@ class ClientThread(Thread):
                        "method": "error",
                        "body": "No JSON object could be decoded",
                        "errorcode": 1}
+            logging.exception("Error while stripping auth header")
         except KeyError:
             message = {
                        "method": "error",
                        "body": "No message object could be found",
                        "errorcode": 2}
+            logging.exception("Error while stripping auth header")
         except TypeError:
             message = {
                        "method": "error",
                        "body": "message contains unexpected type",
                        "errorcode": 3}
+            logging.exception("Error while stripping auth header")
         return message
 
     def __process_inbox(self):
@@ -175,6 +184,7 @@ class ClientThread(Thread):
                 chunk = self._socket.recv(512)
                 if chunk == "":
                     raise socket.error("empty packet")
+                logging.debug("New chunk received: "+chunk)
             except socket.error as err:
                 if err.message != "empty packet":
                     continue
@@ -185,6 +195,8 @@ class ClientThread(Thread):
                         self.__wake_up_threads()
                     break
             messages, chunk_buffer = self._get_message_from_chunks(chunk, chunk_buffer)
+            logging.debug("Received new messages: "+str(messages))
+            logging.debug("Cunk_buffer from last chunk: "+str(chunk_buffer))
             for message in messages:
                 self.__message_inbox.put(message)
                 self.__message_inbox_lock.release()
@@ -208,24 +220,28 @@ class ClientThread(Thread):
         while self.__running:
             message = "\x02"+json.dumps({"message": self.__message_outbox.get()})+"\x03"
             try:
+                logging.debug("sending: "+str(message))
                 self._socket.send(message)
                 self.__message_outbox_lock.acquire()
             except socket.error:
+                logging.exception("socket error while sending. Stopping thread.")
                 if self.__running:
                     self.__running = False
                     self.__wake_up_threads()
 
     def _process_task(self, channel, method, properties, body_json):
+        logging.debug("Received new task from taskqueue: "+ str(body_json))
         task = json.loads(body_json)
         message = {"method": "task", "body": task, "correlation_id": properties.correlation_id}
         self._put_message_into_send_queue(message)
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
     def _connect_to_rabbit_mq(self):
-            rabbit_connection = pika.BlockingConnection(
-                pika.ConnectionParameters(host=self.__rabbit_config["host"]))
-            rabbit_connection.add_timeout(3, self._close_rabbit_connection)
-            return rabbit_connection
+        logging.debug("Establishing new rabbit mq connection")
+        rabbit_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=self.__rabbit_config["host"]))
+        rabbit_connection.add_timeout(3, self._close_rabbit_connection)
+        return rabbit_connection
 
     def _connect_to_task_queue(self):
         self._rabbit_connection = self._connect_to_rabbit_mq()
@@ -253,6 +269,7 @@ class ClientThread(Thread):
         self._connected_to_result_queue = True
 
     def _close_rabbit_connection(self):
+        logging.debug("Close rabbit mq connections")
         if self._connected_to_task_queue:
             self._rabbit_connection.close()
             self._connected_to_task_queue = False
@@ -261,6 +278,7 @@ class ClientThread(Thread):
             self.__connected_to_result_queue = False
 
     def __wake_up_threads(self):
+        logging.debug("Wake up threads")
         self.__message_inbox_lock.release()
         self.__message_outbox_lock.release()
         self._close_rabbit_connection()
