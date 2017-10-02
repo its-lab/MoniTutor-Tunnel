@@ -56,6 +56,26 @@ fi
         session_handle.close_all()
         del session_handle
 
+    def test_connect_to_client_and_fetch_client_connected_result_from_queue(self):
+        rabbitChannel, rabbitConnection = self.get_rabbit(self.config_rabbit["task_exchange"])
+        result_queue = rabbitChannel.queue_declare(exclusive=True)
+        rabbitChannel.queue_bind(
+                exchange=self.config_rabbit["result_exchange"],
+                queue = result_queue.method.queue,
+                routing_key = self.username+"."+self.hostname)
+        client = self._connect()
+        message = {"method": "auth","body": self.hostname}
+        hmac = self.get_hmac(json.dumps(message))
+        packet = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
+        client.send(packet)
+        time.sleep(1)
+        get_ok, properties, result_from_queue = rabbitChannel.basic_get(result_queue.method.queue)
+        self.assertNotEqual(result_from_queue, None, "Client connect result not send")
+        del client
+        time.sleep(5)
+        get_ok, properties, result_from_queue = rabbitChannel.basic_get(result_queue.method.queue)
+        self.assertNotEqual(result_from_queue, None, "Client disconnect result not send")
+
     def test_send_task_to_client_and_fetch_result_from_resultqueue(self):
         client = self._connect()
         message = {"method": "auth","body": self.hostname}
@@ -96,7 +116,7 @@ fi
         client.send(packet)
         time.sleep(1)
         get_ok, properties, result_from_queue = rabbitChannel.basic_get(result_queue.method.queue)
-        self.assertNotEqual(result, None)
+        self.assertNotEqual(result_from_queue, None)
         result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
         result["hostname"] = self.username +"."+self.hostname
         self.assertEqual(result_from_queue,json.dumps(result))

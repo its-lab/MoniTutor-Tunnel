@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import pika
 import logging
+import time
 
 
 class ClientThread(Thread):
@@ -16,6 +17,7 @@ class ClientThread(Thread):
     def __init__(self, socket, db_config="", rabbit_config=""):
         super(ClientThread, self).__init__()
         self._socket = socket
+        self._identifier = False
         self.__message_inbox_lock = Semaphore(0)
         self.__message_inbox = Queue()
         self.__message_outbox_lock = Semaphore(0)
@@ -86,6 +88,13 @@ class ClientThread(Thread):
                         name="rabbit_consumer")
                     logging.debug("Starting queue connection thread")
                     self._task_queue_connection_thread.start()
+                host_alive = {"hostname": self._identifier.replace(".","_"),
+                              "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
+                              "severity_code": 0,
+                              "message": "Connected",
+                              "time": str(int(time.time()))}
+                self._publish_result(host_alive)
+
             elif message["method"] == "result":
                 result = message["body"]
                 result["hostname"] = self._identifier
@@ -109,6 +118,8 @@ class ClientThread(Thread):
                        "errorcode": 3}
             logging.exception("Error while processing message")
             self._put_message_into_send_queue(message)
+        except:
+            logging.exception("Error while processing message")
         return True
 
     def _get_program_code(self, program_name):
@@ -294,11 +305,19 @@ class ClientThread(Thread):
     def _close_rabbit_connection(self):
         logging.debug("Close rabbit mq connections")
         if self._connected_to_task_queue:
-            self._rabbit_connection.close()
             self._connected_to_task_queue = False
-        if self.__connected_to_result_queue:
+            self._rabbit_connection.close()
+        if self._connected_to_result_queue:
+            if self._identifier:
+                host_alive = {"hostname": self._identifier.replace(".","_"),
+                              "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
+                              "severity_code": 2,
+                              "message": "Diconnected",
+                              "time": str(int(time.time()))}
+                self._publish_result(host_alive)
+                self._connected_to_result_queue = False
+                self._rabbit_result_connection.sleep(5)
             self._rabbit_result_connection.close()
-            self.__connected_to_result_queue = False
 
     def __wake_up_threads(self):
         logging.debug("Wake up threads")
