@@ -39,6 +39,19 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
             session_handle.begin()
             session_handle.add(self.database.Auth_user(username=self.username, hmac_secret= self.hmac_secret))
             session_handle.commit()
+        self.program = '''#!/bin/bash
+if [[ "$1" == "test" ]]; then
+    echo "OK"
+    exit 0
+else
+    echo "ERROR"
+    exit 1
+fi
+'''
+        if not session_handle.query(self.database.Programs).filter_by(name="testcode").first():
+            session_handle.begin()
+            session_handle.add(self.database.Programs(name="testcode", display_name="Test Code", code=self.program))
+            session_handle.commit()
         session_handle.flush()
         session_handle.close_all()
         del session_handle
@@ -108,6 +121,32 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
         self.assertEqual(client.recv(1024), echopacket+echopacket)
         client.send(echopacket)
         self.assertEqual(client.recv(1024), echopacket)
+        del client
+
+    def test_request_program_code(self):
+        client = self._connect()
+        message = {"method": "request_program","body": "testcode"}
+        hmac = self.get_hmac(json.dumps(message))
+        packet = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
+        client.send(packet)
+        serialized_program_message = client.recv(2048).strip("\x02\x03")
+        program_message = json.loads(serialized_program_message)
+        program_message = program_message["message"]
+        self.assertEqual("request_program", program_message["method"])
+        self.assertEqual(self.program, program_message["body"])
+        del client
+
+    def test_request_non_existent_program_code(self):
+        client = self._connect()
+        message = {"method": "request_program","body": "invalidtestcode"}
+        hmac = self.get_hmac(json.dumps(message))
+        packet = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
+        client.send(packet)
+        serialized_program_message = client.recv(2048).strip("\x02\x03")
+        program_message = json.loads(serialized_program_message)
+        program_message = program_message["message"]
+        self.assertEqual("error", program_message["method"])
+        self.assertEqual(4, program_message["errorcode"])
         del client
 
     @patch("server.clientthread.ClientThread._message_is_authorized")

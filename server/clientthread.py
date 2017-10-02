@@ -91,6 +91,16 @@ class ClientThread(Thread):
                 result["hostname"] = self._identifier
                 result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
                 self._publish_result(result)
+            elif message["method"] == "request_program":
+                code = self._get_program_code(message["body"])
+                if code:
+                    message["body"] = code
+                else:
+                    message = {
+                       "method": "error",
+                       "body": "program "+message["body"]+" unavailable",
+                       "errorcode": 4}
+                self._put_message_into_send_queue(message)
 
         except TypeError as err:
             message = {
@@ -100,6 +110,19 @@ class ClientThread(Thread):
             logging.exception("Error while processing message")
             self._put_message_into_send_queue(message)
         return True
+
+    def _get_program_code(self, program_name):
+        try:
+            database_handle = self.__get_db_handle()
+            code = database_handle.query(Db.Programs) \
+                .filter(Db.Programs.name == program_name) \
+                .first().code
+        except AttributeError:
+           logging.exception("AttributeError while accessing Programs table")
+           code = False
+        finally:
+            database_handle.close()
+        return code
 
     def _publish_result(self, result):
         if not self._connected_to_result_queue:
