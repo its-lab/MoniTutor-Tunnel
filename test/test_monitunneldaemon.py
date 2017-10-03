@@ -33,6 +33,9 @@ class MoniTunnelDaemonTestCase(unittest.TestCase):
                 rabbit_result_exchange=self.config_rabbit["result_exchange"],
                 rabbit_host=self.config_rabbit["rabbit_host"])
         self.monitunnelDaemon.start()
+        self.setUp_database()
+
+    def setUp_database(self):
         self.database = Db("sqlite:///test.db")
         self.database.base.metadata.create_all(self.database.engine)
         session_handle = self.database.Session()
@@ -57,6 +60,7 @@ fi
         session_handle.close_all()
         del session_handle
 
+
     def test_connect_to_client_and_fetch_client_connected_result_from_queue(self):
         rabbitChannel, rabbitConnection = self.get_rabbit(self.config_rabbit["task_exchange"])
         result_queue = rabbitChannel.queue_declare(exclusive=True)
@@ -73,7 +77,7 @@ fi
         get_ok, properties, result_from_queue = rabbitChannel.basic_get(result_queue.method.queue)
         self.assertNotEqual(result_from_queue, None, "Client connect result not send")
         del client
-        time.sleep(5)
+        time.sleep(7)
         get_ok, properties, result_from_queue = rabbitChannel.basic_get(result_queue.method.queue)
         self.assertNotEqual(result_from_queue, None, "Client disconnect result not send")
 
@@ -180,7 +184,6 @@ fi
         client.send(packet)
         time.sleep(.5)
         self.assertEqual(client.recv(1024).strip("\x02\x03"), json.dumps({"message": message}))
-
         error_packet = "\x02"+json.dumps({"message": "No Json", "HMAC": "empty", "ID": "test"})+"\x03"
         client.send(error_packet)
         time.sleep(.5)
