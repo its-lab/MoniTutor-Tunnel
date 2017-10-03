@@ -119,13 +119,13 @@ fi
                 routing_key = self.username+"."+self.hostname
                 )
         client.send(packet)
+        del client
         time.sleep(1)
         get_ok, properties, result_from_queue = rabbitChannel.basic_get(result_queue.method.queue)
         self.assertNotEqual(result_from_queue, None)
         result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
         result["hostname"] = self.username +"."+self.hostname
         self.assertEqual(result_from_queue,json.dumps(result))
-        del client
 
     def test_monitunnel_ip_config(self):
         self.assertEqual(self.config, self.monitunnelDaemon._config)
@@ -155,11 +155,11 @@ fi
         packet = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
         client.send(packet)
         serialized_program_message = client.recv(2048).strip("\x02\x03")
+        del client
         program_message = json.loads(serialized_program_message)
         program_message = program_message["message"]
         self.assertEqual("request_program", program_message["method"])
         self.assertEqual(self.program, program_message["body"])
-        del client
 
     def test_request_non_existent_program_code(self):
         client = self._connect()
@@ -168,11 +168,11 @@ fi
         packet = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
         client.send(packet)
         serialized_program_message = client.recv(2048).strip("\x02\x03")
+        del client
         program_message = json.loads(serialized_program_message)
         program_message = program_message["message"]
         self.assertEqual("error", program_message["method"])
         self.assertEqual(4, program_message["errorcode"])
-        del client
 
     @patch("server.clientthread.ClientThread._message_is_authorized")
     def test_client_message_format(self, is_authorized):
