@@ -9,6 +9,7 @@ import hmac
 from server.monitunneldaemon import MoniTunnelDaemon
 from server.db import Db
 import pika
+import logging
 
 
 class MoniTunnelDaemonTestCase(unittest.TestCase):
@@ -211,6 +212,7 @@ fi
                 client = socket.create_connection(("127.0.0.1", self.config["port"]))
                 connected = True
             except socket.error:
+                logging.exception("Couldn't connect to server")
                 tries -= 1
         if tries == 0:
             raise socket.error

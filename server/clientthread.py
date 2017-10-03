@@ -221,8 +221,10 @@ class ClientThread(Thread):
                 logging.debug("New chunk received: "+chunk)
             except socket.error as err:
                 if err.message != "empty packet":
+                    logging.exception("Unexpected socket error.")
                     continue
                 else:
+                    logging.info("Empty packet received. Shutdown socket")
                     self._socket.shutdown(socket.SHUT_RDWR)
                     if self.__running:
                         self.__running = False
