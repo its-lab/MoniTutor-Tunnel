@@ -1,5 +1,6 @@
 from client.monitunnelclient import MonitunnelClient
 import socket
+import time
 import unittest
 
 
@@ -10,7 +11,7 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self._hostname = "testhost"
         self._hmac_secret = "secure_hmac_secret"
         self._server_address = "127.0.0.1"
-        self._server_port = "12345"
+        self._server_port = 12345
         self.client = MonitunnelClient(
                 self._username,
                 self._hostname,
@@ -38,7 +39,12 @@ class MonitunnelClientTestCase(unittest.TestCase):
     def test_message_authentication(self):
         self.client.start()
         client_socket, address = self._start_server_and_return_clientsocket()
-        message = client_socket.recv(1024)
+        client_socket.settimeout(1)
+        try:
+            message = client_socket.recv(1024)
+        except:
+            del client_socket
+        del self._server_socket
 
     def tearDown(self):
         if self.client._MonitunnelClient__running:
