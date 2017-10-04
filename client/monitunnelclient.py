@@ -11,6 +11,7 @@ import hmac
 import time
 from re import search
 import tempfile
+import subprocess
 
 class MonitunnelClient(Thread):
 
@@ -114,9 +115,12 @@ class MonitunnelClient(Thread):
 
     def _process_check(self, check_info):
         result = self._execute_check(check_info)
-        result["check"] = check_info
-        result = {"method": "result", "body": result}
-        self.send_message(result)
+        if result:
+            result["check"] = check_info
+            result = {"method": "result", "body": result}
+            self.send_message(result)
+        else:
+            pass
 
     def _execute_check(self, check_info):
         if self._program_is_available(check_info["program"]):
@@ -132,7 +136,17 @@ class MonitunnelClient(Thread):
             return False
 
     def execute(self, check_info):
-        pass
+        program_path = self._program_file_names[check_info["program"]]
+        command_string = check_info["interpreter_path"]\
+                +" "+program_path \
+                +" '"+check_info["params"]+"'"
+        try:
+            output = subprocess.check_output(command_string, shell=True)
+            returncode = 0
+        except subprocess.CalledProcessError as result:
+            output = result.output
+            returncode = result.returncode
+        return {"severity_code": returncode, "output": output.strip("\n")}
 
     def _save_program(self, program):
         new_temp_file_handle = tempfile.mkstemp(dir=self._tmp_dir)

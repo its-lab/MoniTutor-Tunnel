@@ -180,6 +180,48 @@ fi
         self.assertEquals(message["message"]["body"], result["body"]["check"])
         del self._server_socket
 
+    def test_execute(self):
+        self.client.start()
+        client_socket, address = self._start_server_and_return_clientsocket()
+        client_socket.settimeout(3)
+        client_socket.recv(1024)
+        test_program_code = '''#!/bin/bash
+if [[ -f $1 ]]; then
+  echo "OK"
+  exit 0
+else
+  echo "$1 not found"
+  exit 2
+fi'''
+        with open("./test/test.sh", "w+") as test_prog_file:
+            test_prog_file.writelines(test_program_code)
+            test_prog_file.flush()
+        self.client._program_file_names["test.sh"] = path.abspath("./test/test.sh")
+        message = {"message":
+                    {"method": "check",
+                     "body":
+                       {"program": "test.sh",
+                        "interpreter_path": "/bin/bash",
+                        "params": "/etc/hosts",
+                        "id": 1,
+                        "name": "test_/etc/hosts"
+                       }
+                     }
+                   }
+        client_socket.send("\x02"+json.dumps(message)+"\x03")
+        time.sleep(1)
+        response = client_socket.recv(1024)
+        response = response.strip("\x02\x03")
+        result = json.loads(response)
+        result = json.loads(result["message"])
+        self.assertEquals(str(result["method"]), "result")
+        self.assertEquals(result["body"]["severity_code"], 0)
+        self.assertEquals(str(result["body"]["output"]), "OK")
+        self.assertIn("check", result["body"])
+        self.assertEquals(message["message"]["body"], result["body"]["check"])
+        remove("./test/test.sh")
+        del self._server_socket
+
     def tearDown(self):
         if self.client._MonitunnelClient__running:
             self.client.stop()
