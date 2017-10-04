@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import time
 from re import search
+import tempfile
 
 class MonitunnelClient(Thread):
 
@@ -33,6 +34,8 @@ class MonitunnelClient(Thread):
         self._socket_opened.clear()
         self._message_inbox_lock = Semaphore(0)
         self._message_outbox_lock = Semaphore(0)
+        self._program_file_names = {}
+        self._tmp_dir = tempfile.mkdtemp()
 
 
     def run(self):
@@ -105,6 +108,8 @@ class MonitunnelClient(Thread):
             message = json.loads(message)
             if message["message"]["method"] == "check":
                 self._process_check(message["message"]["body"])
+            elif message["message"]["method"] == "request_program":
+                self._save_program(message["message"]["body"])
             self._message_inbox_lock.acquire()
 
     def _process_check(self, check_info):
@@ -114,7 +119,28 @@ class MonitunnelClient(Thread):
         self.send_message(result)
 
     def _execute_check(self, check_info):
+        if self._program_is_available(check_info["program"]):
+            return self.execute(check_info)
+        else:
+            self.send_message({"method": "request_program", "body": check_info["program"]})
+            return False
+
+    def _program_is_available(self, program_name):
+        if program_name in self._program_file_names.keys():
+            return True
+        else:
+            return False
+
+    def execute(self, check_info):
         pass
+
+    def _save_program(self, program):
+        new_temp_file_handle = tempfile.mkstemp(dir=self._tmp_dir)
+        self._program_file_names[program["name"]] = new_temp_file_handle[1]
+        new_program_file = open(new_temp_file_handle[1], "w+")
+        new_program_file.writelines(program["code"].replace("\r\n","\n"))
+        new_program_file.flush()
+        new_program_file.close()
 
     def _socket_send(self):
         self._socket_opened.wait()

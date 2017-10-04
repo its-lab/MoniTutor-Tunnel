@@ -4,6 +4,8 @@ import time
 import unittest
 import json
 from mock import patch
+from os import remove
+from os import path
 
 
 class MonitunnelClientTestCase(unittest.TestCase):
@@ -83,6 +85,90 @@ class MonitunnelClientTestCase(unittest.TestCase):
                    }
         client_socket.send("\x02"+json.dumps(message)+"\x03")
         time.sleep(2)
+        response = client_socket.recv(1024)
+        response = response.strip("\x02\x03")
+        result = json.loads(response)
+        result = json.loads(result["message"])
+        self.assertEquals(str(result["method"]), "result")
+        self.assertEquals(result["body"]["severity_code"], 0)
+        self.assertEquals(str(result["body"]["output"]), "OK")
+        self.assertIn("check", result["body"])
+        self.assertEquals(message["message"]["body"], result["body"]["check"])
+        del self._server_socket
+
+    @patch("client.monitunnelclient.MonitunnelClient._program_is_available")
+    def test_check_execution(self, program_is_available):
+        program_is_available.return_value = False
+        self.client.start()
+        client_socket, address = self._start_server_and_return_clientsocket()
+        client_socket.settimeout(3)
+        try:
+            client_socket.recv(1024)
+        except socket.error:
+            del self._server_socket
+            raise socket.error
+        message = {"message":
+                    {"method": "check",
+                     "body":
+                       {"program": "test.sh",
+                        "interpreter_path": "/bn/bash",
+                        "params": "/etc/hosts",
+                        "id": 1,
+                        "name": "test /etc/hosts"
+                       }
+                     }
+                   }
+        client_socket.send("\x02"+json.dumps(message)+"\x03")
+        time.sleep(2)
+        response = client_socket.recv(1024)
+        response = response.strip("\x02\x03")
+        result = json.loads(response)
+        result = json.loads(result["message"])
+        self.assertEqual("request_program", result["method"])
+        self.assertEqual("test.sh", result["body"])
+        del self._server_socket
+
+    @patch("client.monitunnelclient.MonitunnelClient.execute")
+    def test_program_request_answer(self, execute_check):
+        execute_check.return_value = {"output": "OK", "severity_code": 0}
+        self.client.start()
+        client_socket, address = self._start_server_and_return_clientsocket()
+        client_socket.settimeout(3)
+        try:
+            client_socket.recv(1024)
+        except socket.error:
+            del self._server_socket
+            raise socker.error
+        message = {"message":
+                    {"method": "request_program",
+                     "body": {
+                       "name": "test.sh",
+                       "code": '''#!/bin/bash
+if [[ -f $1 ]]; then
+  echo "OK"
+  exit 0
+else
+  echo "$1 not found"
+  exit 2
+fi
+'''}
+                     }
+                   }
+        client_socket.send("\x02"+json.dumps(message)+"\x03")
+        time.sleep(1)
+        message = {"message":
+                    {"method": "check",
+                     "body":
+                       {"program": "test.sh",
+                        "interpreter_path": "/bn/bash",
+                        "params": "/etc/hosts",
+                        "id": 1,
+                        "name": "test_/etc/hosts"
+                       }
+                     }
+                   }
+        client_socket.send("\x02"+json.dumps(message)+"\x03")
+        time.sleep(1)
         response = client_socket.recv(1024)
         response = response.strip("\x02\x03")
         result = json.loads(response)
