@@ -9,6 +9,7 @@ import json
 import hashlib
 import hmac
 import time
+from re import search
 
 class MonitunnelClient(Thread):
 
@@ -23,6 +24,7 @@ class MonitunnelClient(Thread):
         self._identifier = username+"."+hostname
         self._socket_receive_thread = Thread(target=self._socket_receive, name="receive")
         self._socket_send_thread = Thread(target=self._socket_send, name="send")
+        self._message_processing_thread = Thread(target=self._process_messages, name="send")
         self._message_inbox = Queue()
         self._message_outbox = Queue()
         self._socket_opened = Event()
@@ -37,6 +39,7 @@ class MonitunnelClient(Thread):
         self.__running = True
         self._socket_receive_thread.start()
         self._socket_send_thread.start()
+        self._message_processing_thread.start()
         while self.__running:
             counter = 1
             while self.__running and not self.__connected:
@@ -60,14 +63,12 @@ class MonitunnelClient(Thread):
 
     def _socket_receive(self):
         self._socket_opened.wait()
+        chunk_buffer = ""
         while self.__running:
             try:
-                message = self._socket.recv(1024)
-                if message == "":
+                chunk = self._socket.recv(1024)
+                if chunk == "":
                     raise socket.error("empty message")
-                else:
-                    self._message_inbox.put(message)
-                    self._message_inbox_lock.release()
             except socket.error as err:
                 if err.message == "timed out":
                     pass
@@ -75,8 +76,45 @@ class MonitunnelClient(Thread):
                     logging.exception("socket error while receive")
                     self._socket_opened.clear()
                     self._socket_closed.set()
+            else:
+                messages, chunk_buffer = self._get_message_from_chunks(chunk, chunk_buffer)
+                for message in messages:
+                    self._message_inbox.put(message)
+                    self._message_inbox_lock.release()
             if self.__running:
                 self._socket_opened.wait()
+
+    def _get_message_from_chunks(self, chunk, chunk_buffer):
+        messages = []
+        while search('[^\x03]*\x03', chunk):
+            end_of_message = search('[^\x03]*\x03', chunk)
+            messages.append(chunk_buffer+end_of_message.group(0)[:-1].strip("\x02"))
+            chunk_buffer = ""
+            if len(chunk) > end_of_message.end(0):
+                chunk = chunk[end_of_message.end(0)+1:].strip("\x02")
+            else:
+                chunk = ""
+        else:
+            chunk_buffer += chunk.strip("\x02")
+        return (messages, chunk_buffer)
+
+    def _process_messages(self):
+        self._message_inbox_lock.acquire()
+        while self.__running:
+            message = self._message_inbox.get()
+            message = json.loads(message)
+            if message["message"]["method"] == "check":
+                self._process_check(message["message"]["body"])
+            self._message_inbox_lock.acquire()
+
+    def _process_check(self, check_info):
+        result = self._execute_check(check_info)
+        result["check"] = check_info
+        result = {"method": "result", "body": result}
+        self.send_message(result)
+
+    def _execute_check(self, check_info):
+        pass
 
     def _socket_send(self):
         self._socket_opened.wait()
