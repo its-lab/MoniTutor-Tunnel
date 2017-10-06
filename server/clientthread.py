@@ -43,7 +43,7 @@ class ClientThread(Thread):
             self.__username = message["ID"]
             logging.debug("Fetching hmac_secret of user "+message["ID"])
             self.__hmac_secret = self._get_hmac_secret(self.__username)
-            logging.debug("hmac_secret of user "+message["ID"]+ " is "+self.__hmac_secret)
+            logging.debug("hmac_secret of user "+message["ID"] + " is "+self.__hmac_secret)
         message_hmac = hmac.new(str(self.__hmac_secret),
                                 str(message["message"]),
                                 hashlib.sha256).hexdigest()
@@ -80,7 +80,8 @@ class ClientThread(Thread):
                 self._put_message_into_send_queue(message)
             elif message["method"] == "auth":
                 self._identifier = self.__username+"."+str(message["body"])
-                logging.debug("auth message received. Change identifier to"+str(self._identifier))
+                logging.debug("auth message received. Change identifier to"
+                              + str(self._identifier))
                 if not self._connected_to_task_queue:
                     self._connected_to_task_queue = True
                     self._task_queue_connection_thread = Thread(
@@ -88,7 +89,7 @@ class ClientThread(Thread):
                         name="rabbit_consumer")
                     logging.debug("Starting queue connection thread")
                     self._task_queue_connection_thread.start()
-                host_alive = {"hostname": self._identifier.replace(".","_"),
+                host_alive = {"hostname": self._identifier.replace(".", "_"),
                               "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
                               "severity_code": 0,
                               "message": "Connected",
@@ -122,8 +123,8 @@ class ClientThread(Thread):
                 .filter(Db.Programs.name == program_name) \
                 .first().code
         except AttributeError:
-           logging.exception("AttributeError while accessing Programs table")
-           code = False
+            logging.exception("AttributeError while accessing Programs table")
+            code = False
         finally:
             database_handle.close()
         return code
@@ -250,7 +251,7 @@ class ClientThread(Thread):
                     self.__wake_up_threads()
 
     def _process_task(self, channel, method, properties, body_json):
-        logging.debug("Received new task from taskqueue: "+ str(body_json))
+        logging.debug("Received new task from taskqueue: " + str(body_json))
         task = json.loads(body_json)
         message = {"method": "task", "body": task, "correlation_id": properties.correlation_id}
         self._put_message_into_send_queue(message)
@@ -298,7 +299,7 @@ class ClientThread(Thread):
                 logging.exception("Error while closing connection")
         if self._connected_to_result_queue:
             if self._identifier:
-                host_alive = {"hostname": self._identifier.replace(".","_"),
+                host_alive = {"hostname": self._identifier.replace(".", "_"),
                               "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
                               "severity_code": 2,
                               "message": "Diconnected",
