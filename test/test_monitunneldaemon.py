@@ -172,7 +172,7 @@ fi
         program_message = json.loads(serialized_program_message)
         program_message = program_message["message"]
         self.assertEqual("error", program_message["method"])
-        self.assertEqual(4, program_message["errorcode"])
+        self.assertEqual(4, program_message["body"]["code"])
 
     @patch("server.clientthread.ClientThread._message_is_authorized")
     def test_client_message_format(self, is_authorized):
@@ -187,11 +187,11 @@ fi
         error_packet = "\x02"+json.dumps({"message": "No Json", "HMAC": "empty", "ID": "test"})+"\x03"
         client.send(error_packet)
         time.sleep(.5)
-        self.assertEqual(json.loads(client.recv(1024).strip("\x02\x03"))["message"]["errorcode"], 1)
+        self.assertEqual(json.loads(client.recv(1024).strip("\x02\x03"))["message"]["body"]["code"], 1)
         error_packet = "\x02"+json.dumps({"mes": "No message key", "HMAC": "empty", "ID": "test"})+"\x03"
         client.send(error_packet)
         time.sleep(.5)
-        self.assertEqual(json.loads(client.recv(1024).strip("\x02\x03"))["message"]["errorcode"], 2)
+        self.assertEqual(json.loads(client.recv(1024).strip("\x02\x03"))["message"]["body"]["code"], 2)
         del client
 
     def test_client_authentication(self):

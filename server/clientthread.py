@@ -94,7 +94,6 @@ class ClientThread(Thread):
                               "message": "Connected",
                               "time": str(int(time.time()))}
                 self._publish_result(host_alive)
-
             elif message["method"] == "result":
                 result = message["body"]
                 result["hostname"] = self._identifier
@@ -105,17 +104,11 @@ class ClientThread(Thread):
                 if code:
                     message["body"] = code
                 else:
-                    message = {
-                       "method": "error",
-                       "body": "program "+message["body"]+" unavailable",
-                       "errorcode": 4}
+                    message = self._get_error_msg("program "+message["body"]+" unavailable", 4)
                 self._put_message_into_send_queue(message)
 
         except TypeError as err:
-            message = {
-                       "method": "error",
-                       "body": "message contains unexpected type",
-                       "errorcode": 3}
+            message = self._get_error_msg("message contains unexpected type", 3)
             logging.exception("Error while processing message")
             self._put_message_into_send_queue(message)
         except:
@@ -158,22 +151,13 @@ class ClientThread(Thread):
             serialized_message = message["message"]
             message = json.loads(serialized_message)
         except ValueError:
-            message = {
-                       "method": "error",
-                       "body": "No JSON object could be decoded",
-                       "errorcode": 1}
+            message = self._get_error_msg("No JSON object could be decoded", 1)
             logging.exception("Error while stripping auth header")
         except KeyError:
-            message = {
-                       "method": "error",
-                       "body": "No message object could be found",
-                       "errorcode": 2}
+            message = self._get_error_msg("No message object could be found", 2)
             logging.exception("Error while stripping auth header")
         except TypeError:
-            message = {
-                       "method": "error",
-                       "body": "message contains unexpected type",
-                       "errorcode": 3}
+            message = self._get_error_msg("message contains unexpected type", 3)
             logging.exception("Error while stripping auth header")
         return message
 
@@ -326,3 +310,6 @@ class ClientThread(Thread):
         self.__message_inbox_lock.release()
         self.__message_outbox_lock.release()
         self._close_rabbit_connection()
+
+    def _get_error_msg(self, error_message, error_code):
+        return {"method": "error", "body": {"error": error_message, "code": error_code}}
