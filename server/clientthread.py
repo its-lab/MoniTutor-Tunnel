@@ -292,7 +292,10 @@ class ClientThread(Thread):
         logging.debug("Close rabbit mq connections")
         if self._connected_to_task_queue:
             self._connected_to_task_queue = False
-            self._rabbit_connection.close()
+            try:
+                self._rabbit_connection.close()
+            except:
+                logging.exception("Error while closing connection")
         if self._connected_to_result_queue:
             if self._identifier:
                 host_alive = {"hostname": self._identifier.replace(".","_"),
@@ -302,8 +305,11 @@ class ClientThread(Thread):
                               "time": str(int(time.time()))}
                 self._publish_result(host_alive)
                 self._connected_to_result_queue = False
-                self._rabbit_result_connection.sleep(5)
-            self._rabbit_result_connection.close()
+            try:
+                self._rabbit_result_connection.close()
+            except:
+                logging.exception("Error while closing connection")
+        self._connected_to_rabbit_mq = False
 
     def __wake_up_threads(self):
         logging.debug("Wake up threads")
