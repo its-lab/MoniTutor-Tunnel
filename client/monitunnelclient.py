@@ -11,7 +11,7 @@ import hmac
 import time
 from re import search
 import tempfile
-import subprocess
+
 
 class MonitunnelClient(Thread):
 
@@ -39,7 +39,6 @@ class MonitunnelClient(Thread):
         self._program_file_names = {}
         self._tmp_dir = tempfile.mkdtemp()
 
-
     def run(self):
         self.__running = True
         self._socket_receive_thread.start()
@@ -51,7 +50,7 @@ class MonitunnelClient(Thread):
                 self.__connected = self._connect_to_server()
                 time.sleep(2)
                 logging.info("Wasn't able to connect to server. Try "+str(counter)+"...")
-                counter+=1
+                counter += 1
             if self.__running:
                 self._socket_opened.set()
                 self._authenticate()
@@ -139,9 +138,10 @@ class MonitunnelClient(Thread):
 
     def execute(self, check_info):
         program_path = self._program_file_names[check_info["program"]]
-        command_string = check_info["interpreter_path"]\
-                +" "+program_path \
-                +" '"+check_info["params"]+"'"
+        command_string = \
+            check_info["interpreter_path"] \
+            + " " + program_path \
+            + " '" + check_info["params"] + "'"
         try:
             output = subprocess.check_output(command_string, shell=True)
             returncode = 0
@@ -154,7 +154,7 @@ class MonitunnelClient(Thread):
         new_temp_file_handle = tempfile.mkstemp(dir=self._tmp_dir)
         self._program_file_names[program["name"]] = new_temp_file_handle[1]
         new_program_file = open(new_temp_file_handle[1], "w+")
-        new_program_file.writelines(program["code"].replace("\r\n","\n"))
+        new_program_file.writelines(program["code"].replace("\r\n", "\n"))
         new_program_file.flush()
         new_program_file.close()
         if program["name"] in self._pending_checks.keys():
@@ -188,7 +188,7 @@ class MonitunnelClient(Thread):
         return {"HMAC": hmac, "ID": self._username, "message": serialized_message}
 
     def _get_hmac(self, message):
-        return hmac.new( self._hmac_secret, str(message), hashlib.sha256).hexdigest()
+        return hmac.new(self._hmac_secret, str(message), hashlib.sha256).hexdigest()
 
     def _connect_to_server(self):
         try:
@@ -207,5 +207,3 @@ class MonitunnelClient(Thread):
         self._message_outbox_lock.release()
         self._socket_send_thread.join()
         self._socket_receive_thread.join()
-
-

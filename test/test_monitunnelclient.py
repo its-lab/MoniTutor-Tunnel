@@ -28,18 +28,21 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self.assertEqual(self.client._username, self._username)
         self.assertEqual(self.client._hostname, self._hostname)
         self.assertEqual(self.client._hmac_secret, self._hmac_secret)
-        self.assertEqual(self.client._server_socket_config,(self._server_address, self._server_port))
+        self.assertEqual(self.client._server_socket_config,
+                         (self._server_address, self._server_port))
 
     def test_monitunnel_connect_and_reconnect(self):
         self.client.start()
-        self.assertIs( tuple , type(self._start_server_and_return_clientsocket()))
+        self.assertIs(tuple, type(self._start_server_and_return_clientsocket()))
         del self._server_socket
-        self.assertIs( tuple , type(self._start_server_and_return_clientsocket()), "Reconnect failed")
+        self.assertIs(tuple, type(self._start_server_and_return_clientsocket()),
+                      "Reconnect failed")
         del self._server_socket
         client_socket, address = self._start_server_and_return_clientsocket()
         client_socket.shutdown(socket.SHUT_RDWR)
         del self._server_socket
-        self.assertIs( tuple , type(self._start_server_and_return_clientsocket()), "Hard reset and reconnect failed")
+        self.assertIs(tuple, type(self._start_server_and_return_clientsocket()),
+                      "Hard reset and reconnect failed")
 
     def test_message_authentication(self):
         self.client.start()
@@ -56,9 +59,9 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self.assertIn("\x03", message, "Endofstring control char missing")
         message = message.strip("\x02\x03")
         message = json.loads(message)
-        self.assertIn( "HMAC", message.keys())
-        self.assertIn( "ID", message.keys())
-        self.assertIn( "message", message.keys())
+        self.assertIn("HMAC", message.keys())
+        self.assertIn("ID", message.keys())
+        self.assertIn("message", message.keys())
 
     @patch("client.monitunnelclient.MonitunnelClient._execute_check")
     def test_message_check(self, execute_check):
@@ -71,17 +74,20 @@ class MonitunnelClientTestCase(unittest.TestCase):
         except socket.error:
             del self._server_socket
             raise socket.error
-        message = {"message":
-                    {"method": "check",
-                     "body":
-                       {"program": "test.sh",
-                        "interpreter_path": "/bn/bash",
-                        "params": "/etc/hosts",
-                        "id": 1,
-                        "name": "test /etc/hosts"
-                       }
-                     }
-                   }
+        message = {
+            "message":
+            {
+                "method": "check",
+                "body":
+                {
+                    "program": "test.sh",
+                    "interpreter_path": "/bn/bash",
+                    "params": "/etc/hosts",
+                    "id": 1,
+                    "name": "test /etc/hosts"
+                    }
+                }
+            }
         client_socket.send("\x02"+json.dumps(message)+"\x03")
         time.sleep(2)
         response = client_socket.recv(1024)
@@ -105,17 +111,20 @@ class MonitunnelClientTestCase(unittest.TestCase):
         except socket.error:
             del self._server_socket
             raise socket.error
-        message = {"message":
-                    {"method": "check",
-                     "body":
-                       {"program": "test.sh",
-                        "interpreter_path": "/bn/bash",
-                        "params": "/etc/hosts",
-                        "id": 1,
-                        "name": "test /etc/hosts"
-                       }
-                     }
-                   }
+        message = {
+            "message":
+            {
+                "method": "check",
+                "body":
+                {
+                    "program": "test.sh",
+                    "interpreter_path": "/bn/bash",
+                    "params": "/etc/hosts",
+                    "id": 1,
+                    "name": "test /etc/hosts"
+                    }
+                }
+            }
         client_socket.send("\x02"+json.dumps(message)+"\x03")
         time.sleep(2)
         response = client_socket.recv(1024)
@@ -135,27 +144,33 @@ class MonitunnelClientTestCase(unittest.TestCase):
             client_socket.recv(1024)
         except socket.error:
             del self._server_socket
-            raise socker.error
-        message = {"message":
-                    {"method": "request_program",
-                     "body": {
-                       "name": "test.sh",
-                       "code": test_program_code}
-                     }
-                   }
+            raise socket.error
+        message = {
+            "message":
+            {
+                "method": "request_program",
+                "body": {
+                    "name": "test.sh",
+                    "code": test_program_code
+                    }
+                }
+            }
         client_socket.send("\x02"+json.dumps(message)+"\x03")
         time.sleep(1)
-        message = {"message":
-                    {"method": "check",
-                     "body":
-                       {"program": "test.sh",
-                        "interpreter_path": "/bn/bash",
-                        "params": "/etc/hosts",
-                        "id": 1,
-                        "name": "test_/etc/hosts"
-                       }
-                     }
-                   }
+        message = {
+            "message":
+            {
+                "method": "check",
+                "body":
+                {
+                    "program": "test.sh",
+                    "interpreter_path": "/bn/bash",
+                    "params": "/etc/hosts",
+                    "id": 1,
+                    "name": "test_/etc/hosts"
+                    }
+                }
+            }
         client_socket.send("\x02"+json.dumps(message)+"\x03")
         time.sleep(1)
         response = client_socket.recv(1024)
@@ -177,17 +192,20 @@ class MonitunnelClientTestCase(unittest.TestCase):
             test_prog_file.writelines(test_program_code)
             test_prog_file.flush()
         self.client._program_file_names["test.sh"] = path.abspath("./test/test.sh")
-        message = {"message":
-                    {"method": "check",
-                     "body":
-                       {"program": "test.sh",
-                        "interpreter_path": "/bin/bash",
-                        "params": "/etc/hosts",
-                        "id": 1,
-                        "name": "test_/etc/hosts"
-                       }
-                     }
-                   }
+        message = {
+            "message":
+            {
+                "method": "check",
+                "body":
+                {
+                    "program": "test.sh",
+                    "interpreter_path": "/bin/bash",
+                    "params": "/etc/hosts",
+                    "id": 1,
+                    "name": "test_/etc/hosts"
+                    }
+                }
+            }
         client_socket.send("\x02"+json.dumps(message)+"\x03")
         response = client_socket.recv(1024)
         response = response.strip("\x02\x03")
@@ -208,31 +226,37 @@ class MonitunnelClientTestCase(unittest.TestCase):
         with open("./test/test.sh", "w+") as test_prog_file:
             test_prog_file.writelines(test_program_code)
             test_prog_file.flush()
-        message = {"message":
-                    {"method": "check",
-                     "body":
-                       {"program": "test.sh",
-                        "interpreter_path": "/bin/bash",
-                        "params": "/etc/hosts",
-                        "id": 1,
-                        "name": "test_/etc/hosts"
-                       }
-                     }
-                   }
+        message = {
+            "message":
+            {
+                "method": "check",
+                "body":
+                {
+                    "program": "test.sh",
+                    "interpreter_path": "/bin/bash",
+                    "params": "/etc/hosts",
+                    "id": 1,
+                    "name": "test_/etc/hosts"
+                    }
+                }
+            }
         client_socket.send("\x02"+json.dumps(message)+"\x03")
         response = client_socket.recv(1024)
         response = response.strip("\x02\x03")
         result = json.loads(response)
         result = json.loads(result["message"])
         self.assertEquals(str(result["method"]), "request_program")
-        self.assertEquals(result["body"], message["message"]["body"]["program"] )
-        code_message = {"message":
-                    {"method": "request_program",
-                     "body": {
-                       "name": "test.sh",
-                       "code": test_program_code}
-                     }
-                   }
+        self.assertEquals(result["body"], message["message"]["body"]["program"])
+        code_message = {
+            "message":
+            {
+                "method": "request_program",
+                "body": {
+                    "name": "test.sh",
+                    "code": test_program_code
+                    }
+                }
+            }
         client_socket.send("\x02"+json.dumps(code_message)+"\x03")
         response = client_socket.recv(1024)
         response = response.strip("\x02\x03")
@@ -261,6 +285,7 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self._server_socket.settimeout(4)
         self._server_running = True
         return self._server_socket.accept()
+
 
 test_program_code = '''#!/bin/bash
 if [[ -f $1 ]]; then
