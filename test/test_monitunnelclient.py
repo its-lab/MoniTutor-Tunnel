@@ -22,6 +22,7 @@ class MonitunnelClientTestCase(unittest.TestCase):
                 self._hmac_secret,
                 self._server_address,
                 self._server_port)
+        self._server_running = False
 
     def test_monitunnel_init(self):
         self.assertEqual(self.client._username, self._username)
@@ -39,7 +40,6 @@ class MonitunnelClientTestCase(unittest.TestCase):
         client_socket.shutdown(socket.SHUT_RDWR)
         del self._server_socket
         self.assertIs( tuple , type(self._start_server_and_return_clientsocket()), "Hard reset and reconnect failed")
-        del self._server_socket
 
     def test_message_authentication(self):
         self.client.start()
@@ -59,7 +59,6 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self.assertIn( "HMAC", message.keys())
         self.assertIn( "ID", message.keys())
         self.assertIn( "message", message.keys())
-        del self._server_socket
 
     @patch("client.monitunnelclient.MonitunnelClient._execute_check")
     def test_message_check(self, execute_check):
@@ -94,7 +93,6 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self.assertEquals(str(result["body"]["output"]), "OK")
         self.assertIn("check", result["body"])
         self.assertEquals(message["message"]["body"], result["body"]["check"])
-        del self._server_socket
 
     @patch("client.monitunnelclient.MonitunnelClient._program_is_available")
     def test_check_execution(self, program_is_available):
@@ -126,7 +124,6 @@ class MonitunnelClientTestCase(unittest.TestCase):
         result = json.loads(result["message"])
         self.assertEqual("request_program", result["method"])
         self.assertEqual("test.sh", result["body"])
-        del self._server_socket
 
     @patch("client.monitunnelclient.MonitunnelClient.execute")
     def test_program_request_answer(self, execute_check):
@@ -170,7 +167,6 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self.assertEquals(str(result["body"]["output"]), "OK")
         self.assertIn("check", result["body"])
         self.assertEquals(message["message"]["body"], result["body"]["check"])
-        del self._server_socket
 
     def test_execute(self):
         self.client.start()
@@ -203,7 +199,6 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self.assertIn("check", result["body"])
         self.assertEquals(message["message"]["body"], result["body"]["check"])
         remove("./test/test.sh")
-        del self._server_socket
 
     def test_execute_check_after_program_was_requested(self):
         self.client.start()
@@ -249,9 +244,11 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self.assertIn("check", result["body"])
         self.assertEquals(message["message"]["body"], result["body"]["check"])
         remove("./test/test.sh")
-        del self._server_socket
 
     def tearDown(self):
+        if self._server_running:
+            del self._server_socket
+            self._server_running = False
         if self.client._MonitunnelClient__running:
             self.client.stop()
             self.client.join()
@@ -262,6 +259,7 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self._server_socket.bind((self._server_address, int(self._server_port)))
         self._server_socket.listen(0)
         self._server_socket.settimeout(4)
+        self._server_running = True
         return self._server_socket.accept()
 
 test_program_code = '''#!/bin/bash
