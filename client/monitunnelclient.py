@@ -29,6 +29,7 @@ class MonitunnelClient(Thread):
         self._message_processing_thread = Thread(target=self._process_messages, name="send")
         self._message_inbox = Queue()
         self._message_outbox = Queue()
+        self._pending_checks = {}
         self._socket_opened = Event()
         self._socket_closed = Event()
         self._socket_closed.clear()
@@ -119,14 +120,15 @@ class MonitunnelClient(Thread):
             result["check"] = check_info
             result = {"method": "result", "body": result}
             self.send_message(result)
-        else:
-            pass
 
     def _execute_check(self, check_info):
         if self._program_is_available(check_info["program"]):
             return self.execute(check_info)
         else:
             self.send_message({"method": "request_program", "body": check_info["program"]})
+            if check_info["program"] not in self._pending_checks.keys():
+                self._pending_checks[check_info["program"]] = Queue()
+            self._pending_checks[check_info["program"]].put(check_info)
             return False
 
     def _program_is_available(self, program_name):
@@ -155,6 +157,10 @@ class MonitunnelClient(Thread):
         new_program_file.writelines(program["code"].replace("\r\n","\n"))
         new_program_file.flush()
         new_program_file.close()
+        if program["name"] in self._pending_checks.keys():
+            while not self._pending_checks[program["name"]].empty():
+                pending_check = self._pending_checks[program["name"]].get()
+                self._process_check(pending_check)
 
     def _socket_send(self):
         self._socket_opened.wait()
