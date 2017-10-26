@@ -14,7 +14,7 @@ import time
 
 class ClientThread(Thread):
 
-    def __init__(self, socket, db_config="", rabbit_config=""):
+    def __init__(self, socket, db_config="", rabbit_config="", ssl_enabled=False, ssl_context=False):
         super(ClientThread, self).__init__()
         self._socket = socket
         self._identifier = False
@@ -31,11 +31,15 @@ class ClientThread(Thread):
         self._connected_to_rabbit_mq = False
         self._connected_to_task_queue = False
         self._connected_to_result_queue = False
+        self._ssl_enabled = ssl_enabled
+        self._ssl_context = ssl_context
 
     def run(self):
         self.__running = True
         self._socket.settimeout(2)
         logging.debug("Clientthread started. Socket timeout set to 2 sec.")
+        if self._ssl_enabled:
+            self._socket = self._ssl_context.wrap_socket(self._socket, server_side=True)
         self.__start_message_processing_threads()
 
     def _message_is_authorized(self, message):

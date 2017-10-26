@@ -10,6 +10,7 @@ from server.monitunneldaemon import MoniTunnelDaemon
 from server.db import Db
 import pika
 import logging
+import ssl
 
 
 class MoniTunnelDaemonTestCase(unittest.TestCase):
@@ -203,6 +204,33 @@ fi
         client.send(echopacket)
         self.assertEqual(client.recv(1024).strip('\x02\x03"'), json.dumps({"message": message}))
         del client
+
+    def test_ssl(self):
+        self.monitunnelDaemon.stop()
+        self.monitunnelDaemon.join()
+        self.monitunnelDaemon = MoniTunnelDaemon(
+                port=self.config["port"],
+                db_engine="sqlite",
+                db_database="test.db",
+                rabbit_task_exchange=self.config_rabbit["task_exchange"],
+                rabbit_result_exchange=self.config_rabbit["result_exchange"],
+                rabbit_host=self.config_rabbit["rabbit_host"],
+                ssl_enabled=True,
+                ssl_key="key.pem",
+                ssl_cert="cert.pem")
+        self.monitunnelDaemon.start()
+        context = ssl.create_default_context()
+        context.load_verify_locations("cert.pem")
+        client = self._connect()
+        client = context.wrap_socket(client, server_hostname="example.com")
+        echomsg = "authenticated"
+        message = {"method": "echo","body": echomsg}
+        hmac = self.get_hmac(json.dumps(message))
+        echopacket = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
+        client.send(echopacket)
+        self.assertEqual(client.recv(1024).strip('\x02\x03"'), json.dumps({"message": message}))
+        del client
+
 
     def get_hmac(self, message):
         return hmac.new( self.hmac_secret, str(message), hashlib.sha256).hexdigest()

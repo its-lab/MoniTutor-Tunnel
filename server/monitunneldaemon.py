@@ -2,6 +2,7 @@ import socket
 import time
 from clientthread import ClientThread
 from threading import Thread
+import ssl
 
 
 class MoniTunnelDaemon(Thread):
@@ -16,7 +17,10 @@ class MoniTunnelDaemon(Thread):
                        db_database="",
                        rabbit_host="127.0.0.1",
                        rabbit_task_exchange="",
-                       rabbit_result_exchange=""):
+                       rabbit_result_exchange="",
+                       ssl_enabled=False,
+                       ssl_cert="cert.pem",
+                       ssl_key="key.pem"):
         super(MoniTunnelDaemon, self).__init__()
         self._config = {"port": port, "address": address}
         self.__running = False
@@ -28,6 +32,12 @@ class MoniTunnelDaemon(Thread):
         self.__rabbit_config = {"host": rabbit_host,
                                 "task_exchange": rabbit_task_exchange,
                                 "result_exchange": rabbit_result_exchange}
+        self._ssl_enabled = ssl_enabled
+        if ssl_enabled:
+            self._ssl_context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+            self._ssl_context.load_cert_chain(certfile=ssl_cert, keyfile=ssl_key)
+        else:
+            self._ssl_context = False
 
     def run(self):
         self.__running = True
@@ -58,7 +68,7 @@ class MoniTunnelDaemon(Thread):
             time.sleep(1)
 
     def _start_new_client_thread(self, client_socket):
-        client_thread = ClientThread(client_socket, self.__db_config, self.__rabbit_config)
+        client_thread = ClientThread(client_socket, self.__db_config, self.__rabbit_config, self._ssl_enabled, self._ssl_context)
         client_thread.start()
         self.__thread_list.append(client_thread)
 
