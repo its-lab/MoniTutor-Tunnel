@@ -289,7 +289,7 @@ class ClientThread(Thread):
         logging.debug("Establishing new rabbit mq connection")
         rabbit_connection = pika.BlockingConnection(
             pika.ConnectionParameters(host=self.__rabbit_config["host"]))
-        rabbit_connection.add_timeout(3, self._close_rabbit_connection)
+        #rabbit_connection.add_timeout(3, self._close_rabbit_connection)
         return rabbit_connection
 
     def _connect_to_task_queue(self):
