@@ -39,8 +39,22 @@ class ClientThread(Thread):
         self._socket.settimeout(2)
         logging.debug("Clientthread started. Socket timeout set to 2 sec.")
         if self._ssl_enabled:
-            self._socket = self._ssl_context.wrap_socket(self._socket, server_side=True)
+            self._enable_ssl()
         self.__start_message_processing_threads()
+
+    def _enable_ssl(self):
+        self._socket = self._ssl_context.wrap_socket(
+            self._socket,
+            server_side=True,
+            do_handshake_on_connect=False)
+        while True:
+            try:
+                self._socket.do_handshake()
+                break
+            except ssl.SSLWantReadError:
+                select.select([sock], [], [])
+            except ssl.SSLWantWriteError:
+                select.select([], [sock], [])
 
     def _message_is_authorized(self, message):
         if not self.__username:
