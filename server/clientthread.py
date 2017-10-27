@@ -233,7 +233,8 @@ class ClientThread(Thread):
                 logging.debug("New chunk received: "+chunk)
             except socket.error as err:
                 if err.message != "empty packet":
-                    logging.exception("Unexpected socket error.")
+                    if err.message != "timed out":
+                        logging.exception("Unexpected socket error.")
                     continue
                 else:
                     logging.info("Empty packet received. Shutdown socket")
