@@ -1,10 +1,12 @@
 import argparse
 import signal
 import logging
+from logging import handlers
 import sys
 import os
 import time
 from server.monitunneldaemon import MoniTunnelDaemon
+import socket
 
 parser = argparse.ArgumentParser(description="MoniTunnel server")
 parser.add_argument("-a", "--address", default="0.0.0.0", help="Address to listen to", metavar="x.x.x.x")
@@ -29,6 +31,25 @@ daemon = MoniTunnelDaemon(port=config["port"],
                           db_password=config["db_password"],
                           db_database=config["db_name"],
                           db_username=config["db_user"])
+
+logger = logging.getLogger()
+loglevel = 50-config["verbose"]*10
+logger.setLevel(loglevel)
+if config["logging"]:
+    syslog_log = handlers.SysLogHandler(address="/dev/log")
+    log_format_syslog = logging.Formatter(time.strftime("%b %d %H:%M:%S") + " " +
+            socket.gethostname() + " " +
+            str("MoniTunnel") + "[" +
+            str(os.getpid()) + "]: " +
+            "%(levelname)s %(message)s")
+    syslog_log.setFormatter(log_format_syslog)
+    logger.addHandler(syslog_log)
+else:
+    console_log = logging.StreamHandler()
+    log_format_console = logging.Formatter('[%(asctime)s] %(levelname)s %(message)s')
+    console_log.setFormatter(log_format_console)
+    logger.addHandler(console_log)
+
 
 def daemonize(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
     # Fork process to detach from exec console
@@ -77,8 +98,12 @@ def daemonize(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
     os.dup2(s_err.fileno(), sys.stderr.fileno())
 
 def signal_handler(signum, frame):
-    logging.warn("SIGNAL" + str(signum) + "received! Frame:" + str(frame))
+    logging.warn("SIGNAL " + str(signum) + " received! Frame: " + str(frame))
+    logging.debug("Stop Monitunnel thread")
     daemon.stop()
+    logging.debug("Wait for Monitunnel thread to join")
+    daemon.join()
+    logging.debug("Monitunnel thread joined")
     if config["daemonize"]:
         os.remove("/var/run/monitunnel.pid")
     sys.exit(0)
@@ -91,6 +116,7 @@ if "__main__" == __name__:
     signal.signal(signal.SIGHUP, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    logging.debug("Start Monitunnel Thread")
     daemon.start()
 
     run = True
