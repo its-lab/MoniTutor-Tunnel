@@ -3,6 +3,7 @@ import time
 from clientthread import ClientThread
 from threading import Thread
 import ssl
+import logging
 
 
 class MoniTunnelDaemon(Thread):
@@ -43,16 +44,23 @@ class MoniTunnelDaemon(Thread):
         self.__running = True
         while self.__running:
             while not self.__socket_open and self.__running:
+                logging.debug("Trying to open socket." + str(self._config))
                 self._open_socket()
+                logging.info("Server socket successfuly opened. "
+                             + "Accepting connections on "
+                             + str(self._config))
             try:
                 client_socket, client_address = self._socket.accept()
+                logging.info("New client: " + str(client_address))
                 self._start_new_client_thread(client_socket)
-                self.__running = False
             except socket.error as err:
                 if err.message != "timed out":
+                    logging.exception("Socket error. Restart socket.")
                     self.__socket_open = False
                     del self._socket
             except AttributeError:
+                logging.exception("Attribute error. Client: "+ str(client_address))
+                logging.critical("Stopping server due to critical exception")
                 self.__running = False
 
     def _open_socket(self):
@@ -64,17 +72,23 @@ class MoniTunnelDaemon(Thread):
             self._socket.settimeout(1)
             self.__socket_open = True
         except socket.error as err:
+            logging.exception("Socket error while trying to open new socket")
             self.__socket_open = False
             time.sleep(1)
 
     def _start_new_client_thread(self, client_socket):
         client_thread = ClientThread(client_socket, self.__db_config, self.__rabbit_config, self._ssl_enabled, self._ssl_context)
+        logging.debug("Starting new client thread")
         client_thread.start()
         self.__thread_list.append(client_thread)
 
     def stop(self):
+        logging.warn("Stop main thread.")
         self.__running = False
         for thread in self.__thread_list:
+            logging.debug("Stop clientthread.")
             thread.stop()
+            logging.debug("Wait for clientthread to join")
             thread.join()
+        logging.info("All clientthreads joined. Delete main socket.")
         del self._socket
