@@ -14,7 +14,7 @@ parser.add_argument("-l", "--logging", action="store_true", help="Write messages
 parser.add_argument("-d", "--daemonize", action="store_true", help="Start as daemon")
 parser.add_argument("-s", "--ssl", action="store_true", help="Enable and enforce SSL")
 parser.add_argument("-u", "--db-user", help="Database user")
-parser.add_argument("-p", "--db-password",  help="Database password")
+parser.add_argument("-w", "--db-password",  help="Database password")
 parser.add_argument("-j", "--db-host", default="localhost", help="Address of the database host")
 parser.add_argument("-n", "--db-name", default="monitutor", help="Name of the database")
 parser.add_argument("-r", "--rabit-mq-host", default="localhost", help="Address of the rabbit-mq server")
@@ -25,10 +25,10 @@ daemon = MoniTunnelDaemon(port=config["port"],
                           address=config["address"],
                           rabbit_result_exchange="result_exchange",
                           rabbit_task_exchange="task_exchange",
-                          db_host=congig["db-host"],
-                          db_password=config["db-password"],
-                          db_database=config["db-name"],
-                          db_username=config["db-user"])
+                          db_host=config["db_host"],
+                          db_password=config["db_password"],
+                          db_database=config["db_name"],
+                          db_username=config["db_user"])
 
 def daemonize(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
     # Fork process to detach from exec console
