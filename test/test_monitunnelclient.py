@@ -6,6 +6,7 @@ import json
 from mock import patch
 from os import remove
 from os import path
+import ssl
 
 
 class MonitunnelClientTestCase(unittest.TestCase):
@@ -268,6 +269,39 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self.assertIn("check", result["body"])
         self.assertEquals(message["message"]["body"], result["body"]["check"])
         remove("./test/test.sh")
+
+    def test_ssl(self):
+        self.client = MonitunnelClient(
+                self._username,
+                self._hostname,
+                self._hmac_secret,
+                self._server_address,
+                self._server_port,
+                ssl_enabled=True,
+                ssl_cert="cert.pem")
+        context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile="cert.pem", keyfile="key.pem")
+        self.client.start()
+        client_socket, address = self._start_server_and_return_clientsocket()
+        client_socket = context.wrap_socket(client_socket, server_side=True, do_handshake_on_connect=False)
+        while True:
+            try:
+                client_socket.do_handshake()
+                break
+            except ssl.SSLWantReadError:
+                select.select([sock], [], [])
+            except ssl.SSLWantWriteError:
+                select.select([], [sock], [])
+        try:
+            message = client_socket.recv(1024).strip("\x03\x02")
+        except socket.error:
+            del self._server_socket
+            raise socket.error
+        else:
+            pass
+        message = json.loads(message)
+        self.assertIn("message", message.keys())
+
 
     def tearDown(self):
         if self._server_running:

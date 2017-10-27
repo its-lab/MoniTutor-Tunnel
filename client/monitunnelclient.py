@@ -11,11 +11,12 @@ import hmac
 import time
 from re import search
 import tempfile
+import ssl
 
 
 class MonitunnelClient(Thread):
 
-    def __init__(self, username, hostname, hmac_secret, server_address, server_port=13337):
+    def __init__(self, username, hostname, hmac_secret, server_address, server_port=13337, ssl_enabled=False, ssl_cert="cert.pem", ssl_fqdn="example.com"):
         super(MonitunnelClient, self).__init__()
         self.__running = False
         self.__connected = False
@@ -38,6 +39,12 @@ class MonitunnelClient(Thread):
         self._message_outbox_lock = Semaphore(0)
         self._program_file_names = {}
         self._tmp_dir = tempfile.mkdtemp()
+        self._ssl_enabled = ssl_enabled
+        self._ssl_cert = ssl_cert
+        self._ssl_fqdn = ssl_fqdn
+        if self._ssl_enabled:
+            self._ssl_context = ssl.create_default_context()
+            self._ssl_context.load_verify_locations(self._ssl_cert)
 
     def run(self):
         self.__running = True
@@ -73,8 +80,8 @@ class MonitunnelClient(Thread):
                 chunk = self._socket.recv(1024)
                 if chunk == "":
                     raise socket.error("empty message")
-            except socket.error as err:
-                if err.message == "timed out":
+            except (socket.error, ssl.SSLError) as err:
+                if err.message == "timed out" or err.message == "The read operation timed out":
                     pass
                 else:
                     logging.exception("socket error while receive")
@@ -194,10 +201,30 @@ class MonitunnelClient(Thread):
         try:
             self._socket = socket.create_connection(self._server_socket_config, 5)
             self._socket.settimeout(2)
+            if self._ssl_enabled:
+                self._enable_ssl()
             return True
         except socket.error:
             logging.exception("Couldn't connect to server")
             return False
+        except ssl.SSLError:
+            loggign.exception("Error connecting to server using ssl")
+            return False
+
+    def _enable_ssl(self):
+        self._socket = self._ssl_context.wrap_socket(
+            self._socket,
+            server_hostname=self._ssl_fqdn,
+            do_handshake_on_connect=False)
+        while True:
+            try:
+                self._socket.do_handshake()
+                break
+            except ssl.SSLWantReadError:
+                select.select([sock], [], [])
+            except ssl.SSLWantWriteError:
+                select.select([], [sock], [])
+
 
     def stop(self):
         self.__running = False
