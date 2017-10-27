@@ -39,6 +39,7 @@ class ClientThread(Thread):
         self._socket.settimeout(2)
         logging.debug("Clientthread started. Socket timeout set to 2 sec.")
         if self._ssl_enabled:
+            logging.debug("Enable ssl socket")
             self._enable_ssl()
         self.__start_message_processing_threads()
 
@@ -47,6 +48,7 @@ class ClientThread(Thread):
             self._socket,
             server_side=True,
             do_handshake_on_connect=False)
+        logging.debug("Start SSL handshake")
         while True:
             try:
                 self._socket.do_handshake()
@@ -55,6 +57,7 @@ class ClientThread(Thread):
                 select.select([sock], [], [])
             except ssl.SSLWantWriteError:
                 select.select([], [sock], [])
+        logging.debug("SSL handshake done")
 
     def _message_is_authorized(self, message):
         if not self.__username:
@@ -86,6 +89,7 @@ class ClientThread(Thread):
             db_engine_string += ":"+self.__db_config["port"]
         if self.__db_config["database"]:
             db_engine_string += "/"+self.__db_config["database"]
+        logging.debug("Connecting to database "+ db_engine_string)
         return Db(db_engine_string).Session()
 
     def _process_unauthorized_message(self, message):
@@ -135,6 +139,7 @@ class ClientThread(Thread):
         return True
 
     def _get_program_code(self, program_name):
+        logging.debug("Get program "+program_name)
         try:
             database_handle = self.__get_db_handle()
             code = database_handle.query(Db.Programs) \
@@ -145,6 +150,7 @@ class ClientThread(Thread):
             code = False
         finally:
             database_handle.close()
+        logging.debug("Got program "+ str(program_name) + ": "+ str(code))
         return code
 
     def _publish_result(self, result):
@@ -211,11 +217,14 @@ class ClientThread(Thread):
             thread.start()
 
     def __stop_socket_threads(self):
+        logging.debug("Wait for socket threads to join")
         for thread in self.__thread_list:
             thread.join()
+        logging.debug("All socket threads joined")
 
     def __socket_receive(self):
         chunk_buffer = ""
+        logging.debug("Current chunk buffer: " + chunk_buffer)
         while self.__running:
             try:
                 chunk = self._socket.recv(512)
@@ -233,9 +242,9 @@ class ClientThread(Thread):
                         self.__running = False
                         self.__wake_up_threads()
                     break
+            logging.debug("Socket received new chunk:" + chunk)
             messages, chunk_buffer = self._get_message_from_chunks(chunk, chunk_buffer)
             logging.debug("Received new messages: "+str(messages))
-            logging.debug("Cunk_buffer from last chunk: "+str(chunk_buffer))
             for message in messages:
                 self.__message_inbox.put(message)
                 self.__message_inbox_lock.release()
