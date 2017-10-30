@@ -61,14 +61,14 @@ class ResultWriter(Thread):
         if check_result["icingacmd_type"] == "PROCESS_SERVICE_CHECK_RESULT":
             icingacmd_string = "[{0}] PROCESS_SERVICE_CHECK_RESULT;{1};{2};{3};{4}" \
                 .format(check_result["time"],
-                        check_result["host"],
+                        check_result["hostname"],
                         check_result["name"],
                         check_result["severity_code"],
                         check_result["message"])
         else:
             icingacmd_string = "[{0}] PROCESS_HOST_CHECK_RESULT;{1};{2};{3}" \
                 .format(check_result["time"],
-                        check_result["host"],
+                        check_result["hostname"],
                         check_result["severity_code"],
                         check_result["message"])
         return icingacmd_string

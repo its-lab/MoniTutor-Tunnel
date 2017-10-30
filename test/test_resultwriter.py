@@ -43,7 +43,7 @@ class ResultwriterTestCase(unittest.TestCase):
         check_result = {"icingacmd_type": "PROCESS_SERVICE_CHECK_RESULT",
                         "time": str(time_now),
                         "name": "administrator_ping_myself",
-                        "host": "administrator_itsclient",
+                        "hostname": "administrator_itsclient",
                         "severity_code": 1,
                         "message": "OK - All fine"}
         resultstring = "["+str(time_now)+"] PROCESS_SERVICE_CHECK_RESULT;administrator_itsclient;administrator_ping_myself;1;OK - All fine"
@@ -75,7 +75,7 @@ class ResultwriterTestCase(unittest.TestCase):
         result = {"icingacmd_type": "PROCESS_SERVICE_CHECK_RESULT",
                   "time": time_now,
                   "name": "administrator_ping_myself",
-                  "host": "administrator_itsclient",
+                  "hostname": "administrator_itsclient",
                   "severity_code": 1,
                   "message": "OK - All fine"}
         resultstring = "["+str(time_now)+"] PROCESS_SERVICE_CHECK_RESULT;administrator_itsclient;administrator_ping_myself;1;OK - All fine"
@@ -102,7 +102,7 @@ class ResultwriterTestCase(unittest.TestCase):
         result = {"icingacmd_type": "PROCESS_SERVICE_CHECK_RESULT",
                   "time": time_now,
                   "name": "administrator_ping_myself",
-                  "host": "administrator_itsclient",
+                  "hostname": "administrator_itsclient",
                   "severity_code": 1,
                   "message": "OK - All fine"}
         result_json = json.dumps(result)
