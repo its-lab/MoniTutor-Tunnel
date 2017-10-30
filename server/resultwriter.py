@@ -3,6 +3,7 @@ import subprocess
 import pika
 from json import loads
 from threading import Thread
+import logging
 
 
 class ResultWriter(Thread):
@@ -18,6 +19,7 @@ class ResultWriter(Thread):
 
     def run(self):
         self.__running = True
+        logging.info("Starting resultwrtier")
         while self.__running:
             self._connect_to_message_queue()
             try:
@@ -26,10 +28,12 @@ class ResultWriter(Thread):
                 pass
 
     def stop(self):
+        logging.info("Stopping Resultwriter")
         self.__running = False
         self.__rabbit_connection.close()
 
     def _connect_to_message_queue(self):
+        logging.debug("connecting to rabbitMq")
         self.__rabbit_connection = pika.BlockingConnection(
             pika.ConnectionParameters(host=self._config["rabbit_host"])
             )
@@ -53,6 +57,7 @@ class ResultWriter(Thread):
 
     def _message_callback(self, channel, method, properties, body_json):
         body = loads(body_json)
+        logging.debug("Received message from rabbit: "+str(body))
         icingacmd_string = self._get_icingacmd_string(body)
         icingacmd_commandline_string = self._get_icingacmd_commandline_string(icingacmd_string)
         self._execute_command(icingacmd_commandline_string)
@@ -77,6 +82,7 @@ class ResultWriter(Thread):
         return "echo '"+icingacmd_string+"' >> "+self._config["icingacmd_path"]+";"
 
     def _execute_command(self, command_string):
+        logging.info("Execute command: "+command_string)
         try:
             output = subprocess.check_output(command_string, shell=True)
             returncode = 0
@@ -84,4 +90,5 @@ class ResultWriter(Thread):
             output = result.output
             returncode = result.returncode
         finally:
+            logging.debug("Outut: "+output+"; code: "+str(returncode))
             return {"output": output, "returncode": returncode}
