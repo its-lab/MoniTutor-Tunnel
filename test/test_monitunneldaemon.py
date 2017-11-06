@@ -106,8 +106,9 @@ fi
         time_now = int(time.time())
         result = {"time": str(time_now),
                   "severity_code": 1,
-                  "message": "This is a test",
-                  "name": "test_check"
+                  "output": "This is a test",
+                  "name": task["name"],
+                  "check": task
                  }
         message = {"method": "result","body": result}
         hmac = self.get_hmac(json.dumps(message))
@@ -126,7 +127,7 @@ fi
         self.assertNotEqual(result_from_queue, None)
         result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
         result["hostname"] = self.username +"."+self.hostname
-        self.assertEqual(result_from_queue,json.dumps(result))
+        self.assertEqual(json.loads(result_from_queue),result)
 
     def test_monitunnel_ip_config(self):
         self.assertEqual(self.config, self.monitunnelDaemon._config)
@@ -160,7 +161,8 @@ fi
         program_message = json.loads(serialized_program_message)
         program_message = program_message["message"]
         self.assertEqual("request_program", program_message["method"])
-        self.assertEqual(self.program, program_message["body"])
+        self.assertEqual(self.program, program_message["body"]["code"])
+        self.assertEqual(message["body"], program_message["body"]["name"])
 
     def test_request_non_existent_program_code(self):
         client = self._connect()

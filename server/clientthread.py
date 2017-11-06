@@ -114,18 +114,20 @@ class ClientThread(Thread):
                 host_alive = {"hostname": self._identifier.replace(".", "_"),
                               "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
                               "severity_code": 0,
-                              "message": "Connected",
+                              "output": "Connected",
                               "time": str(int(time.time()))}
                 self._publish_result(host_alive)
             elif message["method"] == "result":
                 result = message["body"]
+                result["name"] = result["check"]["name"]
+                result["time"] = str(int(time.time()))
                 result["hostname"] = self._identifier
                 result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
                 self._publish_result(result)
             elif message["method"] == "request_program":
                 code = self._get_program_code(message["body"])
                 if code:
-                    message["body"] = code
+                    message["body"] = {"code": code, "name": message["body"]}
                 else:
                     message = self._get_error_msg("program "+message["body"]+" unavailable", 4)
                 self._put_message_into_send_queue(message)
@@ -280,10 +282,14 @@ class ClientThread(Thread):
 
     def _process_task(self, channel, method, properties, body_json):
         logging.debug("Received new task from taskqueue: " + str(body_json))
-        task = json.loads(body_json)
-        message = {"method": "task", "body": task, "correlation_id": properties.correlation_id}
-        self._put_message_into_send_queue(message)
-        channel.basic_ack(delivery_tag=method.delivery_tag)
+        try:
+            task = json.loads(body_json)
+            message = {"method": "task", "body": task, "correlation_id": properties.correlation_id}
+            self._put_message_into_send_queue(message)
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+        except ValueError:
+            logging.exception("Received invalid object from taskqueue: "+body_json)
+            channel.basic_ack(delivery_tag=method.delivery_tag)
 
     def _connect_to_rabbit_mq(self):
         logging.debug("Establishing new rabbit mq connection")
@@ -330,7 +336,7 @@ class ClientThread(Thread):
                 host_alive = {"hostname": self._identifier.replace(".", "_"),
                               "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
                               "severity_code": 2,
-                              "message": "Diconnected",
+                              "output": "Disconnected",
                               "time": str(int(time.time()))}
                 self._publish_result(host_alive)
                 self._connected_to_result_queue = False
