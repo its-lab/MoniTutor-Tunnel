@@ -69,13 +69,13 @@ class ResultWriter(Thread):
                         check_result["hostname"],
                         check_result["name"],
                         check_result["severity_code"],
-                        check_result["message"])
+                        check_result["output"])
         else:
             icingacmd_string = "[{0}] PROCESS_HOST_CHECK_RESULT;{1};{2};{3}" \
                 .format(check_result["time"],
                         check_result["hostname"],
                         check_result["severity_code"],
-                        check_result["message"])
+                        check_result["output"])
         return icingacmd_string
 
     def _get_icingacmd_commandline_string(self, icingacmd_string):
