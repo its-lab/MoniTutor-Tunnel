@@ -15,10 +15,11 @@ parser.add_argument("-l", "--logging", action="store_true", help="Write messages
 parser.add_argument("-t", "--task-exchange", default="task_exchange", help="Name of the task exchange")
 parser.add_argument("-r", "--result-exchange", default="result_exchange", help="Name of the result exchange")
 parser.add_argument("-d", "--daemonize", action="store_true", help="Start as daemon")
+parser.add_argument("-i", "--icinga-path", default="/var/run/icinga2/cmd/icinga2.cmd", help="Absolut path to icinga2.cmd file")
 
 config = vars(parser.parse_args())
 
-result_writer = ResultWriter(config["rabbit_mq_host"], config["result_exchange"], config["task_exchange"])
+result_writer = ResultWriter(config["rabbit_mq_host"], config["result_exchange"], config["task_exchange"], config["icinga_path"])
 
 logger = logging.getLogger()
 loglevel = 50-config["verbose"]*10
