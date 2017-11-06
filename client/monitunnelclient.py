@@ -69,6 +69,7 @@ class MonitunnelClient(Thread):
         self.send_message(message)
 
     def send_message(self, message):
+        logging.debug("Send message to server: "+str(message))
         self._message_outbox.put(message)
         self._message_outbox_lock.release()
 
@@ -115,13 +116,16 @@ class MonitunnelClient(Thread):
             message = self._message_inbox.get()
             message = json.loads(message)
             if message["message"]["method"] == "check":
+            logging.debug("New message from server:"+ str(message))
                 self._process_check(message["message"]["body"])
             elif message["message"]["method"] == "request_program":
                 self._save_program(message["message"]["body"])
             self._message_inbox_lock.acquire()
 
     def _process_check(self, check_info):
+        logging.debug("Process check:" +str(check_info))
         result = self._execute_check(check_info)
+        logging.debug("check prcocessed. Result: "+str(result))
         if result:
             result["check"] = check_info
             result = {"method": "result", "body": result}
@@ -131,6 +135,7 @@ class MonitunnelClient(Thread):
         if self._program_is_available(check_info["program"]):
             return self.execute(check_info)
         else:
+            logging.debug("Program "+str(check_info["program"])+" is not available")
             self.send_message({"method": "request_program", "body": check_info["program"]})
             if check_info["program"] not in self._pending_checks.keys():
                 self._pending_checks[check_info["program"]] = Queue()
@@ -144,6 +149,7 @@ class MonitunnelClient(Thread):
             return False
 
     def execute(self, check_info):
+        logging.debug("execute "+str(check_info))
         program_path = self._program_file_names[check_info["program"]]
         command_string = \
             check_info["interpreter_path"] \
@@ -158,12 +164,14 @@ class MonitunnelClient(Thread):
         return {"severity_code": returncode, "output": output.strip("\n")}
 
     def _save_program(self, program):
+        logging.debug("Saving new program: "+ str(program["name"]))
         new_temp_file_handle = tempfile.mkstemp(dir=self._tmp_dir)
         self._program_file_names[program["name"]] = new_temp_file_handle[1]
         new_program_file = open(new_temp_file_handle[1], "w+")
         new_program_file.writelines(program["code"].replace("\r\n", "\n"))
         new_program_file.flush()
         new_program_file.close()
+        logging.debug("Saved "+ str(program["name"]) +" as "+ str(new_temp_file_handle[1]))
         if program["name"] in self._pending_checks.keys():
             while not self._pending_checks[program["name"]].empty():
                 pending_check = self._pending_checks[program["name"]].get()
