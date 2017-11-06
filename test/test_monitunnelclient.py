@@ -78,7 +78,7 @@ class MonitunnelClientTestCase(unittest.TestCase):
         message = {
             "message":
             {
-                "method": "check",
+                "method": "task",
                 "body":
                 {
                     "program": "test.sh",
@@ -115,7 +115,7 @@ class MonitunnelClientTestCase(unittest.TestCase):
         message = {
             "message":
             {
-                "method": "check",
+                "method": "task",
                 "body":
                 {
                     "program": "test.sh",
@@ -161,7 +161,7 @@ class MonitunnelClientTestCase(unittest.TestCase):
         message = {
             "message":
             {
-                "method": "check",
+                "method": "task",
                 "body":
                 {
                     "program": "test.sh",
@@ -196,7 +196,7 @@ class MonitunnelClientTestCase(unittest.TestCase):
         message = {
             "message":
             {
-                "method": "check",
+                "method": "task",
                 "body":
                 {
                     "program": "test.sh",
@@ -230,7 +230,7 @@ class MonitunnelClientTestCase(unittest.TestCase):
         message = {
             "message":
             {
-                "method": "check",
+                "method": "task",
                 "body":
                 {
                     "program": "test.sh",

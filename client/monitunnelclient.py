@@ -115,8 +115,8 @@ class MonitunnelClient(Thread):
         while self.__running:
             message = self._message_inbox.get()
             message = json.loads(message)
-            if message["message"]["method"] == "check":
             logging.debug("New message from server:"+ str(message))
+            if message["message"]["method"] == "task":
                 self._process_check(message["message"]["body"])
             elif message["message"]["method"] == "request_program":
                 self._save_program(message["message"]["body"])
