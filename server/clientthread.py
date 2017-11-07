@@ -28,7 +28,6 @@ class ClientThread(Thread):
         self.__db_config = db_config
         self.__rabbit_config = rabbit_config
         self.__running = False
-        self._connected_to_rabbit_mq = False
         self._connected_to_task_queue = False
         self._connected_to_result_queue = False
         self._ssl_enabled = ssl_enabled
@@ -214,8 +213,7 @@ class ClientThread(Thread):
         self.__message_outbox_lock.release()
         self.__message_inbox_lock.release()
         self.__stop_socket_threads()
-        if self._connected_to_rabbit_mq:
-            self._close_rabbit_connection()
+        self._close_rabbit_connection()
 
     def __start_message_processing_threads(self):
         self.__thread_list.append(Thread(target=self.__socket_receive, name="socket_receive"))
@@ -301,7 +299,6 @@ class ClientThread(Thread):
         logging.debug("Establishing new rabbit mq connection")
         rabbit_connection = pika.BlockingConnection(
             pika.ConnectionParameters(host=self.__rabbit_config["host"]))
-        #rabbit_connection.add_timeout(3, self._close_rabbit_connection)
         return rabbit_connection
 
     def _connect_to_task_queue(self):
@@ -331,14 +328,9 @@ class ClientThread(Thread):
 
     def _close_rabbit_connection(self):
         logging.debug("Close rabbit mq connections")
-        if self._connected_to_task_queue:
-            self._connected_to_task_queue = False
-            try:
-                self._rabbit_connection.close()
-            except:
-                logging.exception("Error while closing connection")
         if self._connected_to_result_queue:
             if self._identifier:
+                logging.debug("closing connection to result queue")
                 host_alive = {"hostname": self._identifier.replace(".", "_"),
                               "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
                               "severity_code": 2,
@@ -349,8 +341,14 @@ class ClientThread(Thread):
             try:
                 self._rabbit_result_connection.close()
             except:
-                logging.exception("Error while closing connection")
-        self._connected_to_rabbit_mq = False
+                logging.exception("Error while closing connection to result queue")
+        if self._connected_to_task_queue:
+            self._connected_to_task_queue = False
+            logging.debug("closing connection to task queue")
+            try:
+                self._rabbit_connection.close()
+            except:
+                logging.exception("Error while closing connection to task queue")
 
     def __wake_up_threads(self):
         logging.debug("Wake up threads")
