@@ -159,11 +159,17 @@ class ClientThread(Thread):
         if not self._connected_to_result_queue:
             self._connect_to_result_queue()
         logging.debug("Publish result: "+str(result)+" to "+self._identifier)
-        self._result_channel.basic_publish(
-            exchange=self.__rabbit_config["result_exchange"],
-            routing_key=self._identifier,
-            body=json.dumps(result)
-            )
+        try:
+            self._result_channel.basic_publish(
+                exchange=self.__rabbit_config["result_exchange"],
+                routing_key=self._identifier,
+                body=json.dumps(result)
+                )
+        except pika.exceptions.ConnectionClosed:
+            del self._result_channel
+            del self._rabbit_result_connection
+            self._connected_to_result_queue = False
+            self._publish_result(result)
 
     def __consume_tasks(self):
         while self.__running:
@@ -171,7 +177,7 @@ class ClientThread(Thread):
             try:
                 self._rabbit_channel.start_consuming()
             except AttributeError:
-                pass
+                logging.exception("Consuming tasks. Attribute Exception")
 
     def _strip_authentication_header(self, message):
         try:
@@ -213,7 +219,7 @@ class ClientThread(Thread):
 
     def __start_message_processing_threads(self):
         self.__thread_list.append(Thread(target=self.__socket_receive, name="socket_receive"))
-        self.__thread_list.append(Thread(target=self.__socket_send, name="socket_receive"))
+        self.__thread_list.append(Thread(target=self.__socket_send, name="socket_send"))
         self.__thread_list.append(Thread(target=self.__process_inbox, name="process_inbox"))
         for thread in self.__thread_list:
             thread.start()
