@@ -17,8 +17,10 @@ class MoniTunnelDaemon(Thread):
                        db_password="",
                        db_database="",
                        rabbit_host="127.0.0.1",
-                       rabbit_task_exchange="",
-                       rabbit_result_exchange="",
+                       rabbit_task_exchange="task_exchange",
+                       rabbit_result_exchange="result_exchange",
+                       rabbit_username="guest",
+                       rabbit_password="guest",
                        ssl_enabled=False,
                        ssl_cert="cert.pem",
                        ssl_key="key.pem"):
@@ -32,7 +34,9 @@ class MoniTunnelDaemon(Thread):
                             "password": db_password, "database": db_database}
         self.__rabbit_config = {"host": rabbit_host,
                                 "task_exchange": rabbit_task_exchange,
-                                "result_exchange": rabbit_result_exchange}
+                                "result_exchange": rabbit_result_exchange,
+                                "username": rabbit_username,
+                                "password": rabbit_password}
         self._ssl_enabled = ssl_enabled
         if ssl_enabled:
             self._ssl_context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)

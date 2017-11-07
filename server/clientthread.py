@@ -281,8 +281,11 @@ class ClientThread(Thread):
 
     def _connect_to_rabbit_mq(self):
         logging.debug("Establishing new rabbit mq connection")
+        rabbit_credentials = pika.credentials.PlainCredentials(
+            self.__rabbit_config["username"],
+            self.__rabbit_config["password"])
         rabbit_connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=self.__rabbit_config["host"]))
+            pika.ConnectionParameters(host=self.__rabbit_config["host"], credentials=rabbit_credentials))
         return rabbit_connection
 
     def _process_task(self, channel, method, properties, body_json):
