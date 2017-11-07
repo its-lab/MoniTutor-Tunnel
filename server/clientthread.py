@@ -10,6 +10,8 @@ import hmac
 import pika
 import logging
 import time
+import ssl
+import select
 
 
 class ClientThread(Thread):
@@ -53,9 +55,9 @@ class ClientThread(Thread):
                 self._socket.do_handshake()
                 break
             except ssl.SSLWantReadError:
-                select.select([sock], [], [])
+                select.select([self._socket], [], [])
             except ssl.SSLWantWriteError:
-                select.select([], [sock], [])
+                select.select([], [self._socket], [])
         logging.debug("SSL handshake done")
 
     def _message_is_authorized(self, message):
