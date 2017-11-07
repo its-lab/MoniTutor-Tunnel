@@ -33,7 +33,6 @@ class MonitunnelClient(Thread):
         self._pending_checks = {}
         self._socket_opened = Event()
         self._socket_closed = Event()
-        self._socket_closed.clear()
         self._socket_opened.clear()
         self._message_inbox_lock = Semaphore(0)
         self._message_outbox_lock = Semaphore(0)
@@ -52,12 +51,14 @@ class MonitunnelClient(Thread):
         self._socket_send_thread.start()
         self._message_processing_thread.start()
         while self.__running:
+            self._socket_closed.clear()
             counter = 1
             while self.__running and not self.__connected:
                 self.__connected = self._connect_to_server()
-                time.sleep(2)
-                logging.info("Wasn't able to connect to server. Try "+str(counter)+"...")
-                counter += 1
+                if not self.__connected:
+                    time.sleep(2)
+                    logging.info("Wasn't able to connect to server. Try "+str(counter)+"...")
+                    counter += 1
             if self.__running:
                 self._socket_opened.set()
                 self._authenticate()
@@ -216,7 +217,7 @@ class MonitunnelClient(Thread):
             logging.exception("Couldn't connect to server")
             return False
         except ssl.SSLError:
-            loggign.exception("Error connecting to server using ssl")
+            logging.exception("Error connecting to server using ssl")
             return False
 
     def _enable_ssl(self):
