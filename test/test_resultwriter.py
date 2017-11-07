@@ -45,14 +45,14 @@ class ResultwriterTestCase(unittest.TestCase):
                         "name": "administrator_ping_myself",
                         "hostname": "administrator_itsclient",
                         "severity_code": 1,
-                        "message": "OK - All fine"}
+                        "output": "OK - All fine"}
         resultstring = "["+str(time_now)+"] PROCESS_SERVICE_CHECK_RESULT;administrator_itsclient;administrator_ping_myself;1;OK - All fine"
         self.resultwriter._get_icingacmd_string(check_result)
         self.assertEqual(self.resultwriter._get_icingacmd_string(check_result),
                          resultstring,
                          "Service check result string not properly formatted")
         check_result["icingacmd_type"] = "PROCESS_HOST_CHECK_RESULT"
-        check_result["message"] = "Not Connected"
+        check_result["output"] = "Not Connected"
         resultstring = "["+str(time_now)+"] PROCESS_HOST_CHECK_RESULT;administrator_itsclient;1;Not Connected"
         self.assertEqual(self.resultwriter._get_icingacmd_string(check_result), resultstring,
                          "Host check result string not properly formatted")
@@ -77,7 +77,7 @@ class ResultwriterTestCase(unittest.TestCase):
                   "name": "administrator_ping_myself",
                   "hostname": "administrator_itsclient",
                   "severity_code": 1,
-                  "message": "OK - All fine"}
+                  "output": "OK - All fine"}
         resultstring = "["+str(time_now)+"] PROCESS_SERVICE_CHECK_RESULT;administrator_itsclient;administrator_ping_myself;1;OK - All fine"
         if os.access(self.config["icingacmd_path"], os.R_OK):
             os.remove(self.config["icingacmd_path"])
@@ -104,7 +104,7 @@ class ResultwriterTestCase(unittest.TestCase):
                   "name": "administrator_ping_myself",
                   "hostname": "administrator_itsclient",
                   "severity_code": 1,
-                  "message": "OK - All fine"}
+                  "output": "OK - All fine"}
         result_json = json.dumps(result)
         self.rabbitChannel.basic_publish(
                 exchange=self.config["result_exchange"],
