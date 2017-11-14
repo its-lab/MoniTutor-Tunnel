@@ -42,7 +42,7 @@ class ResultwriterTestCase(unittest.TestCase):
         time_now = int(time.time())
         check_result = {"icingacmd_type": "PROCESS_SERVICE_CHECK_RESULT",
                         "time": str(time_now),
-                        "name": "administrator_ping_myself",
+                        "name": "ping_myself",
                         "hostname": "administrator_itsclient",
                         "severity_code": 1,
                         "output": "OK - All fine"}
@@ -74,7 +74,7 @@ class ResultwriterTestCase(unittest.TestCase):
         time_now = str(int(time.time()))
         result = {"icingacmd_type": "PROCESS_SERVICE_CHECK_RESULT",
                   "time": time_now,
-                  "name": "administrator_ping_myself",
+                  "name": "ping_myself",
                   "hostname": "administrator_itsclient",
                   "severity_code": 1,
                   "output": "OK - All fine"}
@@ -101,7 +101,7 @@ class ResultwriterTestCase(unittest.TestCase):
         time_now = str(int(time.time()))
         result = {"icingacmd_type": "PROCESS_SERVICE_CHECK_RESULT",
                   "time": time_now,
-                  "name": "administrator_ping_myself",
+                  "name": "ping_myself",
                   "hostname": "administrator_itsclient",
                   "severity_code": 1,
                   "output": "OK - All fine"}

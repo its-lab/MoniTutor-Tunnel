@@ -64,12 +64,14 @@ class ResultWriter(Thread):
 
     def _get_icingacmd_string(self, check_result):
         if check_result["icingacmd_type"] == "PROCESS_SERVICE_CHECK_RESULT":
-            icingacmd_string = "[{0}] PROCESS_SERVICE_CHECK_RESULT;{1};{2};{3};{4}" \
+            username = check_result["hostname"].split("_")[0]
+            icingacmd_string = "[{0}] PROCESS_SERVICE_CHECK_RESULT;{1};{5}_{2};{3};{4}" \
                 .format(check_result["time"],
                         check_result["hostname"],
                         check_result["name"],
                         check_result["severity_code"],
-                        check_result["output"])
+                        check_result["output"],
+                        username)
         else:
             icingacmd_string = "[{0}] PROCESS_HOST_CHECK_RESULT;{1};{2};{3}" \
                 .format(check_result["time"],
