@@ -19,7 +19,7 @@ parser.add_argument("-u", "--db-user", help="Database user")
 parser.add_argument("-w", "--db-password",  help="Database password")
 parser.add_argument("-j", "--db-host", default="localhost", help="Address of the database host")
 parser.add_argument("-n", "--db-name", default="monitutor", help="Name of the database")
-parser.add_argument("-r", "--rabit-mq-host", default="localhost", help="Address of the rabbit-mq server")
+parser.add_argument("-r", "--rabbit-mq-host", default="localhost", help="Address of the rabbit-mq server")
 
 config = vars(parser.parse_args())
 
