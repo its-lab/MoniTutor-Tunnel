@@ -165,7 +165,7 @@ class ClientThread(Thread):
                 result = message["body"]
                 result["name"] = result["check"]["name"]
                 result["time"] = str(int(time.time()))
-                result["hostname"] = self._identifier
+                result["hostname"] = self._identifier.replace(".", "_")
                 result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
                 self._publish_result(result)
             elif message["method"] == "request_program":
