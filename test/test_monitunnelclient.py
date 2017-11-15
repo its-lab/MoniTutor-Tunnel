@@ -184,7 +184,9 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self.assertIn("check", result["body"])
         self.assertEquals(message["message"]["body"], result["body"]["check"])
 
-    def test_execute(self):
+    @patch("client.monitunnelclient.MonitunnelClient._program_is_available")
+    def test_execute(self, program_is_available):
+        program_is_available.return_value = True
         self.client.start()
         client_socket, address = self._start_server_and_return_clientsocket()
         client_socket.settimeout(4)
@@ -269,6 +271,49 @@ class MonitunnelClientTestCase(unittest.TestCase):
         self.assertIn("check", result["body"])
         self.assertEquals(message["message"]["body"], result["body"]["check"])
         remove("./test/test.sh")
+
+    def test_execute_check_after_program_was_altered(self):
+        self.client.start()
+        client_socket, address = self._start_server_and_return_clientsocket()
+        client_socket.settimeout(3)
+        client_socket.recv(1024)
+        code_message = {
+            "message":
+            {
+                "method": "request_program",
+                "body": {
+                    "name": "test.sh",
+                    "code": test_program_code
+                    }
+                }
+            }
+        client_socket.send("\x02"+json.dumps(code_message)+"\x03")
+        time.sleep(1)
+        filename = self.client._program_file_names["test.sh"]
+        with open(filename, "a") as checkfile:
+            checkfile.write("Test\n")
+            checkfile.flush()
+        message = {
+            "message":
+            {
+                "method": "task",
+                "body":
+                {
+                    "program": "test.sh",
+                    "interpreter_path": "/bin/bash",
+                    "params": "/etc/hosts",
+                    "id": 1,
+                    "name": "test_/etc/hosts"
+                    }
+                }
+            }
+        client_socket.send("\x02"+json.dumps(message)+"\x03")
+        response = client_socket.recv(1024)
+        response = response.strip("\x02\x03")
+        result = json.loads(response)
+        result = json.loads(result["message"])
+        self.assertEquals(str(result["method"]), "request_program")
+        self.assertEquals(result["body"], message["message"]["body"]["program"])
 
     def test_ssl(self):
         self.client = MonitunnelClient(

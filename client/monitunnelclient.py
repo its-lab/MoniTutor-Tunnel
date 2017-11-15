@@ -12,6 +12,7 @@ import time
 from re import search
 import tempfile
 import ssl
+import base64
 
 
 class MonitunnelClient(Thread):
@@ -37,6 +38,7 @@ class MonitunnelClient(Thread):
         self._message_inbox_lock = Semaphore(0)
         self._message_outbox_lock = Semaphore(0)
         self._program_file_names = {}
+        self._program_checksums = {}
         self._tmp_dir = tempfile.mkdtemp()
         self._ssl_enabled = ssl_enabled
         self._ssl_cert = ssl_cert
@@ -145,9 +147,14 @@ class MonitunnelClient(Thread):
 
     def _program_is_available(self, program_name):
         if program_name in self._program_file_names.keys():
-            return True
-        else:
-            return False
+            with open(self._program_file_names[program_name], "rb") as program:
+                code_string = program.read()
+                try:
+                    if self._get_checksum(code_string) == self._program_checksums[program_name]:
+                        return True
+                except KeyError:
+                    return False
+        return False
 
     def execute(self, check_info):
         logging.debug("execute "+str(check_info))
@@ -168,6 +175,8 @@ class MonitunnelClient(Thread):
         logging.debug("Saving new program: "+ str(program["name"]))
         new_temp_file_handle = tempfile.mkstemp(dir=self._tmp_dir)
         self._program_file_names[program["name"]] = new_temp_file_handle[1]
+        self._program_checksums[program["name"]] = self._get_checksum(program["code"] \
+                                                      .replace("\r\n", "\n"))
         new_program_file = open(new_temp_file_handle[1], "w+")
         new_program_file.writelines(program["code"].replace("\r\n", "\n"))
         new_program_file.flush()
@@ -177,6 +186,9 @@ class MonitunnelClient(Thread):
             while not self._pending_checks[program["name"]].empty():
                 pending_check = self._pending_checks[program["name"]].get()
                 self._process_check(pending_check)
+
+    def _get_checksum(self, text):
+        return base64.urlsafe_b64encode(hashlib.sha256(text).digest())
 
     def _socket_send(self):
         self._socket_opened.wait()
