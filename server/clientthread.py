@@ -120,6 +120,7 @@ class ClientThread(Thread):
             serialized_message = self.__message_inbox.get()
             message = json.loads(serialized_message)
             if self._message_is_authorized(message):
+                message = self._strip_authentication_header(message)
                 self._process_message(message)
             else:
                 self._process_unauthorized_message(message)
@@ -140,7 +141,6 @@ class ClientThread(Thread):
                     self.__wake_up_threads()
 
     def _process_message(self, message):
-        message = self._strip_authentication_header(message)
         try:
             if message["method"] == "echo" or message["method"] == "error":
                 self._put_message_into_send_queue(message)
@@ -292,9 +292,17 @@ class ClientThread(Thread):
         logging.debug("Received new task from taskqueue: " + str(body_json))
         try:
             task = json.loads(body_json)
-            message = {"method": "task",
-                       "body": task,
-                       "correlation_id": properties.correlation_id}
+            if "push" in task.keys():
+                if task["push"] == "program":
+                    message = {"method": "request_program", "body": task["name"]}
+                    self._process_message(message)
+                    return True
+                else:
+                    raise ValueError
+            else:
+                message = {"method": "task",
+                           "body": task,
+                           "correlation_id": properties.correlation_id}
             self._put_message_into_send_queue(message)
             channel.basic_ack(delivery_tag=method.delivery_tag)
         except ValueError:
