@@ -314,6 +314,10 @@ class ClientThread(Thread):
             exchange=self.__rabbit_config["task_exchange"],
             queue=self._identifier,
             routing_key=self._identifier)
+        self._rabbit_channel.queue_bind(
+            exchange=self.__rabbit_config["task_exchange"],
+            queue=self._identifier,
+            routing_key="all")
         self._rabbit_channel.basic_consume(
             self._process_task,
             queue=self._identifier)
