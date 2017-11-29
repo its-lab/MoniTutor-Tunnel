@@ -162,7 +162,7 @@ class MonitunnelClient(Thread):
         command_string = \
             check_info["interpreter_path"] \
             + " " + program_path \
-            + " '" + check_info["params"] + "'"
+            + " " + check_info["params"]
         try:
             output = subprocess.check_output(command_string, shell=True)
             returncode = 0
