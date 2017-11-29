@@ -66,6 +66,7 @@ class MonitunnelClient(Thread):
                 self._authenticate()
                 self._socket_closed.wait()
                 self.__connected = False
+                time.sleep(.5)
 
     def _authenticate(self):
         message = {"method": "auth", "body": self._hostname}
