@@ -363,7 +363,7 @@ class ClientThread(Thread):
                 logging.debug("closing connection to result queue")
                 host_alive = {"hostname": ""+self.__username+"_"+self.__hostname,
                               "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
-                              "severity_code": 2,
+                              "severity_code": 1,
                               "output": "Disconnected",
                               "time": str(int(time.time()))}
                 self._publish_result(host_alive)
