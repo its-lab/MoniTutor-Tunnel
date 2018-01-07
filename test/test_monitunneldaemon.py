@@ -127,7 +127,7 @@ fi
         self.assertNotEqual(result_from_queue, None)
         result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
         result["hostname"] = self.username +"_"+self.hostname
-        self.assertEqual(json.loads(result_from_queue),result)
+        self.assertEqual(dict(json.loads(result_from_queue)),dict(json.loads(json.dumps(result))))
 
     def test_monitunnel_ip_config(self):
         self.assertEqual(self.config, self.monitunnelDaemon._config)
