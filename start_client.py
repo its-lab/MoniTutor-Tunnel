@@ -32,6 +32,8 @@ clientThread = MonitunnelClient(config["username"],
 
 
 logger = logging.getLogger()
+if not config["verbose"]:
+    config["verbose"] = 0
 loglevel = 50-config["verbose"]*10
 logger.setLevel(loglevel)
 if config["logging"]:
