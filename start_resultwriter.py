@@ -22,6 +22,8 @@ config = vars(parser.parse_args())
 result_writer = ResultWriter(config["rabbit_mq_host"], config["result_exchange"], config["task_exchange"], config["icinga_path"])
 
 logger = logging.getLogger()
+if not config["verbose"]:
+    config["verbose"] = 0
 loglevel = 50-config["verbose"]*10
 logger.setLevel(loglevel)
 
