@@ -30,10 +30,10 @@ logger.setLevel(loglevel)
 if config["logging"]:
     syslog_log = handlers.SysLogHandler(address="/dev/log")
     log_format_syslog = logging.Formatter(time.strftime("%b %d %H:%M:%S") + " " +
-            socket.gethostname() + " " +
-            str("ResultWriter") + "[" +
-            str(os.getpid()) + "]: " +
-            "%(levelname)s %(message)s")
+                                          socket.gethostname() + " " +
+                                          str("ResultWriter") + "[" +
+                                          str(os.getpid()) + "]: " +
+                                          "%(levelname)s %(message)s")
     syslog_log.setFormatter(log_format_syslog)
     logger.addHandler(syslog_log)
 else:
@@ -42,13 +42,14 @@ else:
     console_log.setFormatter(log_format_console)
     logger.addHandler(console_log)
 
+
 def daemonize(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
     # Fork process to detach from exec console
     try:
         pid = os.fork()
         if pid > 0:
             sys.exit(0)  # Exit parent
-    except OSError, e:
+    except OSError as e:
         sys.stderr.write("fork #2 failed: (%d) %s\n" % (e.errno, e.strerror))
         sys.exit(1)
 
@@ -62,7 +63,7 @@ def daemonize(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
         pid = os.fork()
         if pid > 0:
             sys.exit(0)
-    except OSError, e:
+    except OSError as e:
         sys.stderr.write("fork #2 failed: (%d) %s\n" % (e.errno, e.strerror))
         sys.exit(1)
 
@@ -88,6 +89,7 @@ def daemonize(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
     os.dup2(s_out.fileno(), sys.stdout.fileno())
     os.dup2(s_err.fileno(), sys.stderr.fileno())
 
+
 def signal_handler(signum, frame):
     logging.warn("SIGNAL " + str(signum) + " received! Frame: " + str(frame))
     logging.debug("Stop ResultWriter thread")
@@ -99,6 +101,7 @@ def signal_handler(signum, frame):
         os.remove("/var/run/monitunnel.pid")
     sys.exit(0)
 
+
 if "__main__" == __name__:
     if config["daemonize"]:
         daemonize()
@@ -107,7 +110,7 @@ if "__main__" == __name__:
     signal.signal(signal.SIGHUP, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     logging.debug("Start ResultWriter Thread")
-    print "test"
+    print ("test")
     result_writer.start()
     run = True
     while run:
