@@ -3,7 +3,7 @@ import logging
 from logging import handlers
 import signal
 import time
-from server.resultwriter import ResultWriter
+from server.icinga2_resultwriter import IcingaResultWriter as ResultWriter
 import sys
 import os
 import socket
