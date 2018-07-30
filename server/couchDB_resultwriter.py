@@ -28,9 +28,12 @@ class CouchDbResultWriter(ResultWriter):
             self._database = self._couch_client.create_database(couch_db_database)
             logging.info("Create database "+couch_db_database)
 
+    def stop(self):
+        super(CouchDbResultWriter, self).stop()
+        self._couch_client.disconnect()
+
     def _process_result(self, check_result):
         return check_result
 
     def _write_result(self, result):
-        logging.info("Write result: "+str(result))
         self._database.create_document(result)
