@@ -1,12 +1,13 @@
 import argparse
 import logging
-from logging import handlers
 import signal
 import time
 from server.couchDB_resultwriter import CouchDbResultWriter as ResultWriter
 import sys
 import os
-import socket
+from utils import daemonize
+from utils import get_logger
+from utils import configure_logging
 
 parser = argparse.ArgumentParser(description="MoniTunnel server")
 parser.add_argument("-a", "--rabbit-mq-host", default="localhost", help="Address of the rabbit-mq server")
@@ -21,75 +22,15 @@ parser.add_argument("-p", "--couch-db-password")
 
 config = vars(parser.parse_args())
 
-result_writer = ResultWriter(config["rabbit_mq_host"], config["result_exchange"], config["task_exchange"], config["couch_db_url"], couch_db_user=config["couch_db_user"], couch_db_password=config["couch_db_password"])
+result_writer = ResultWriter(config["rabbit_mq_host"],
+                             config["result_exchange"],
+                             config["task_exchange"],
+                             config["couch_db_url"],
+                             couch_db_user=config["couch_db_user"],
+                             couch_db_password=config["couch_db_password"])
 
-logger = logging.getLogger()
-if not config["verbose"]:
-    config["verbose"] = 0
-loglevel = 50-config["verbose"]*10
-logger.setLevel(loglevel)
-
-if config["logging"]:
-    syslog_log = handlers.SysLogHandler(address="/dev/log")
-    log_format_syslog = logging.Formatter(time.strftime("%b %d %H:%M:%S") + " " +
-                                          socket.gethostname() + " " +
-                                          str("ResultWriter") + "[" +
-                                          str(os.getpid()) + "]: " +
-                                          "%(levelname)s %(message)s")
-    syslog_log.setFormatter(log_format_syslog)
-    logger.addHandler(syslog_log)
-else:
-    console_log = logging.StreamHandler()
-    log_format_console = logging.Formatter('[%(asctime)s] %(levelname)s %(message)s')
-    console_log.setFormatter(log_format_console)
-    logger.addHandler(console_log)
-
-
-def daemonize(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
-    # Fork process to detach from exec console
-    try:
-        pid = os.fork()
-        if pid > 0:
-            sys.exit(0)  # Exit parent
-    except OSError as e:
-        sys.stderr.write("fork #2 failed: (%d) %s\n" % (e.errno, e.strerror))
-        sys.exit(1)
-
-    # Detach from parent environment
-    os.chdir("/")
-    os.umask(0)
-    os.setsid()
-
-    # Terminating the parent and continuing the daemon in the child
-    try:
-        pid = os.fork()
-        if pid > 0:
-            sys.exit(0)
-    except OSError as e:
-        sys.stderr.write("fork #2 failed: (%d) %s\n" % (e.errno, e.strerror))
-        sys.exit(1)
-
-    if os.path.isfile("/var/run/monitunnel.pid"):
-        pidfile = open("/var/run/monitunnel.pid", "r")
-        pidfile.seek(0)
-        oldpid = pidfile.readline()
-        pidfile.close()
-        sys.stderr.write("Pidfile found. Daemon with pid %s already running?\n" % (oldpid))
-
-        sys.exit(1)
-    else:
-        pidfile = open("var/run/monitunnel.pid", "a+")
-        pidfile.write(str(os.getpid()))
-        pidfile.flush()
-        pidfile.close()
-
-    # Redirect standard file descriptors.
-    s_in = open(stdin, 'r')
-    s_out = open(stdout, 'a+')
-    s_err = open(stderr, 'a+')
-    os.dup2(s_in.fileno(), sys.stdin.fileno())
-    os.dup2(s_out.fileno(), sys.stdout.fileno())
-    os.dup2(s_err.fileno(), sys.stderr.fileno())
+logger = get_logger(config["verbose"])
+configure_logging(logger, config["logging"])
 
 
 def signal_handler(signum, frame):
@@ -112,7 +53,6 @@ if "__main__" == __name__:
     signal.signal(signal.SIGHUP, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     logging.debug("Start ResultWriter Thread")
-    print ("test")
     result_writer.start()
     run = True
     while run:
