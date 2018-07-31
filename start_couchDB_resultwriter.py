@@ -16,10 +16,12 @@ parser.add_argument("-t", "--task-exchange", default="task_exchange", help="Name
 parser.add_argument("-r", "--result-exchange", default="result_exchange", help="Name of the result exchange")
 parser.add_argument("-d", "--daemonize", action="store_true", help="Start as daemon")
 parser.add_argument("-i", "--couch-db-url", default="http://couchdb:5984", help="CouchDB server API url")
+parser.add_argument("-u", "--couch-db-user")
+parser.add_argument("-p", "--couch-db-password")
 
 config = vars(parser.parse_args())
 
-result_writer = ResultWriter(config["rabbit_mq_host"], config["result_exchange"], config["task_exchange"], config["couch_db_url"])
+result_writer = ResultWriter(config["rabbit_mq_host"], config["result_exchange"], config["task_exchange"], config["couch_db_url"], couch_db_user=config["couch_db_user"], couch_db_password=config["couch_db_password"])
 
 logger = logging.getLogger()
 if not config["verbose"]:
