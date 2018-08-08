@@ -128,7 +128,8 @@ class CouchDbResultWriter(ResultWriter):
     time = new Date(Number(doc.time)*1000);
     output = doc.output;
     severity = doc.severity_code;
-    emit([username, check_name, time], severity);
+    scenario_name = doc.check.scenario_name
+    emit([username, check_name, scenario_name, time], severity);
   }
 }"""
         severity_reduce_function = """function(keys, values, rereduce){
