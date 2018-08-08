@@ -137,7 +137,7 @@ class CouchDbResultWriter(ResultWriter):
   }
 }"""
         if "check_result_history" not in design_doc.list_views():
-            design_doc.add_view("check_result_histtory", check_result_history_map_function)
+            design_doc.add_view("check_result_history", check_result_history_map_function)
         if "check_results" not in design_doc.list_views():
             design_doc.add_view("check_results", check_results_map_function)
         if "host_status_history" not in design_doc.list_views():
