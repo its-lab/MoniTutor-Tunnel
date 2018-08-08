@@ -80,7 +80,8 @@ class CouchDbResultWriter(ResultWriter):
     time = new Date(Number(doc.time)*1000);
     output = doc.output;
     severity = doc.severity_code;
-    emit([username, check_name, time], {output: output, severity: severity});
+    scenario_name = doc.check.scenario_name;
+    emit([username, scenario_name, check_name, time], {output: output, severity: severity});
   }
 }"""
         check_results_map_function = """function(doc){
@@ -92,7 +93,8 @@ class CouchDbResultWriter(ResultWriter):
     time = new Date(Number(doc.time)*1000);
     output = doc.output;
     severity = doc.severity_code;
-    emit([username, check_name], {output: output, severity: severity, time: time});
+    scenario_name = doc.check.scenario_name;
+    emit([username, check_name], {output: output, severity: severity, time: time, scenario_name: scenario_name});
   }
 }"""
         host_status_history_map_function = """function(doc){
