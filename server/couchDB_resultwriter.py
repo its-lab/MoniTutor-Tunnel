@@ -132,6 +132,19 @@ class CouchDbResultWriter(ResultWriter):
     emit([username, check_name, scenario_name, time], severity);
   }
 }"""
+        scenario_severity_map_function = """function(doc){
+  var time, output, hostname, severity, check_name, username;
+  if(doc.icingacmd_type == "PROCESS_SERVICE_CHECK_RESULT" && doc.object_id){
+    hostname = doc.hostname.split("_")[1];
+    username = doc.hostname.split("_")[0];
+    check_name = doc.check.name;
+    time = new Date(Number(doc.time)*1000);
+    output = doc.output;
+    severity = doc.severity_code;
+    scenario_name = doc.check.scenario_name
+    emit([scenario_name, username,  check_name, time], severity);
+  }
+}"""
         severity_reduce_function = """function(keys, values, rereduce){
   if (rereduce) {
     return values.reduce(function(a, b){return Math.min(a, b)}, 2);
@@ -139,6 +152,20 @@ class CouchDbResultWriter(ResultWriter):
     return Math.min.apply(null, values);
   }
 }"""
+
+        successful_checks_map_function = """function(doc){
+  var time, output, hostname, severity, check_name, username;
+  if(doc.icingacmd_type == "PROCESS_SERVICE_CHECK_RESULT"
+     && doc.object_id
+     && doc.severity_code == 0){
+    username = doc.hostname.split("_")[0];
+    check_name = doc.check.name;
+    severity = doc.severity_code;
+    scenario_name = doc.check.scenario_name
+    emit([scenario_name, username,  check_name], severity);
+  }
+}"""
+
         if "check_result_history" not in design_doc.list_views():
             design_doc.add_view("check_result_history", check_result_history_map_function)
         if "check_results" not in design_doc.list_views():
@@ -151,4 +178,12 @@ class CouchDbResultWriter(ResultWriter):
             design_doc.add_view("severity",
                                 severity_map_function,
                                 reduce_func=severity_reduce_function)
+        if "scenario_severity" not in design_doc.list_views():
+            design_doc.add_view("scenario_severity",
+                                scenario_severity_map_function,
+                                reduce_func=severity_reduce_function)
+        if "successful_checks" not in design_doc.list_views():
+            design_doc.add_view("successful_checks",
+                                successful_checks_map_function,
+                                reduce_func='_count')
         design_doc.save()
