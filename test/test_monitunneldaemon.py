@@ -108,7 +108,8 @@ fi
                   "severity_code": 1,
                   "output": "This is a test",
                   "name": task["name"],
-                  "check": task
+                  "check": task,
+                  "address": "127.0.0.1"
                  }
         message = {"method": "result","body": result}
         hmac = self.get_hmac(json.dumps(message))

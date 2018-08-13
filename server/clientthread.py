@@ -21,8 +21,10 @@ class ClientThread(Thread):
                  db_config="",
                  rabbit_config="",
                  ssl_enabled=False,
-                 ssl_context=False):
+                 ssl_context=False,
+                 client_address=None):
         super(ClientThread, self).__init__()
+        self._address=client_address
         self._socket = socket
         self._identifier = False
         self.__message_inbox_lock = Semaphore(0)
@@ -158,7 +160,8 @@ class ClientThread(Thread):
                               "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
                               "severity_code": 0,
                               "output": "Connected",
-                              "time": str(int(time.time()))}
+                              "time": str(int(time.time())),
+                              "address": self._address}
                 self._publish_result(host_alive)
             elif message["method"] == "result":
                 result = message["body"]
@@ -166,6 +169,7 @@ class ClientThread(Thread):
                 result["time"] = str(int(time.time()))
                 result["hostname"] = ""+self.__username+"_"+self.__hostname
                 result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
+                result["address"] = self._address
                 self._publish_result(result)
             elif message["method"] == "request_program":
                 code = self._get_program_code(message["body"])
@@ -365,7 +369,8 @@ class ClientThread(Thread):
                               "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
                               "severity_code": 1,
                               "output": "Disconnected",
-                              "time": str(int(time.time()))}
+                              "time": str(int(time.time())),
+                              "address": self._address}
                 self._publish_result(host_alive)
                 self._connected_to_result_queue = False
             try:
