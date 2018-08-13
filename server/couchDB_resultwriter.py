@@ -39,7 +39,7 @@ class CouchDbResultWriter(ResultWriter):
 
     def _add_check_to_history(self, check_result):
         hostname = check_result["hostname"]
-        if check_result["icingacmd_type"] == "PROCESS_SERVICE_CHECK_RESULT":
+        if check_result["type"] == "CHECK_RESULT":
             check_result["object_id"] = hostname+"_"+check_result["check"]["name"]
         else:
             check_result["object_id"] = hostname
@@ -48,7 +48,7 @@ class CouchDbResultWriter(ResultWriter):
 
     def _update_check_object(self, check_result):
         hostname = check_result["hostname"]
-        if check_result["icingacmd_type"] == "PROCESS_SERVICE_CHECK_RESULT":
+        if check_result["type"] == "CHECK_RESULT":
             check_result["_id"] = hostname+"_"+check_result["check"]["name"]
         else:
             check_result["_id"] = hostname
@@ -73,7 +73,7 @@ class CouchDbResultWriter(ResultWriter):
         design_doc = self._database.get_design_document("results")
         check_result_history_map_function = """function(doc){
   var time, output, hostname, severity, check_name, username;
-  if(doc.icingacmd_type == "PROCESS_SERVICE_CHECK_RESULT" && doc.object_id){
+  if(doc.type == "CHECK_RESULT" && doc.object_id){
     hostname = doc.hostname.split("_")[1];
     username = doc.hostname.split("_")[0];
     check_name = doc.check.name;
@@ -86,7 +86,7 @@ class CouchDbResultWriter(ResultWriter):
 }"""
         check_results_map_function = """function(doc){
   var time, output, hostname, severity, check_name, username;
-  if(doc.icingacmd_type == "PROCESS_SERVICE_CHECK_RESULT" && !doc.object_id){
+  if(doc.type == "CHECK_RESULT" && !doc.object_id){
     hostname = doc.hostname.split("_")[1];
     username = doc.hostname.split("_")[0];
     check_name = doc.check.name;
@@ -99,7 +99,7 @@ class CouchDbResultWriter(ResultWriter):
 }"""
         host_status_history_map_function = """function(doc){
   var time, output, hostname, severity, username;
-  if(doc.icingacmd_type == "PROCESS_HOST_CHECK_RESULT" && doc.object_id){
+  if(doc.type == "HOST_RESULT" && doc.object_id){
     hostname = doc.hostname.split("_")[1];
     username = doc.hostname.split("_")[0];
     time = new Date(Number(doc.time)*1000);
@@ -110,7 +110,7 @@ class CouchDbResultWriter(ResultWriter):
 }"""
         host_status_map_function = """function(doc){
   var time, output, hostname, severity, username;
-  if(doc.icingacmd_type == "PROCESS_HOST_CHECK_RESULT" && !doc.object_id){
+  if(doc.type == "HOST_RESULT" && !doc.object_id){
     hostname = doc.hostname.split("_")[1];
     username = doc.hostname.split("_")[0];
     time = new Date(Number(doc.time)*1000);
@@ -121,7 +121,7 @@ class CouchDbResultWriter(ResultWriter):
 }"""
         severity_map_function = """function(doc){
   var time, output, hostname, severity, check_name, username;
-  if(doc.icingacmd_type == "PROCESS_SERVICE_CHECK_RESULT" && doc.object_id){
+  if(doc.type == "CHECK_RESULT" && doc.object_id){
     hostname = doc.hostname.split("_")[1];
     username = doc.hostname.split("_")[0];
     check_name = doc.check.name;
@@ -134,7 +134,7 @@ class CouchDbResultWriter(ResultWriter):
 }"""
         scenario_severity_map_function = """function(doc){
   var time, output, hostname, severity, check_name, username;
-  if(doc.icingacmd_type == "PROCESS_SERVICE_CHECK_RESULT" && doc.object_id){
+  if(doc.type == "CHECK_RESULT" && doc.object_id){
     hostname = doc.hostname.split("_")[1];
     username = doc.hostname.split("_")[0];
     check_name = doc.check.name;
@@ -155,7 +155,7 @@ class CouchDbResultWriter(ResultWriter):
 
         successful_checks_map_function = """function(doc){
   var time, output, hostname, severity, check_name, username;
-  if(doc.icingacmd_type == "PROCESS_SERVICE_CHECK_RESULT"
+  if(doc.type == "CHECK_RESULT"
      && doc.object_id
      && doc.severity_code == 0){
     username = doc.hostname.split("_")[0];

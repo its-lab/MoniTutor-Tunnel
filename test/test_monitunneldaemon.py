@@ -126,7 +126,7 @@ fi
         time.sleep(1)
         get_ok, properties, result_from_queue = rabbitChannel.basic_get(result_queue.method.queue)
         self.assertNotEqual(result_from_queue, None)
-        result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
+        result["type"] = "CHECK_RESULT"
         result["hostname"] = self.username +"_"+self.hostname
         self.assertEqual(dict(json.loads(result_from_queue)),dict(json.loads(json.dumps(result))))
 

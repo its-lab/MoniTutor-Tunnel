@@ -157,7 +157,7 @@ class ClientThread(Thread):
                     logging.debug("Starting queue connection thread")
                     self._task_queue_connection_thread.start()
                 host_alive = {"hostname": ""+self.__username+"_"+self.__hostname,
-                              "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
+                              "type": "HOST_RESULT",
                               "severity_code": 0,
                               "output": "Connected",
                               "time": str(int(time.time())),
@@ -168,7 +168,7 @@ class ClientThread(Thread):
                 result["name"] = result["check"]["name"]
                 result["time"] = str(int(time.time()))
                 result["hostname"] = ""+self.__username+"_"+self.__hostname
-                result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
+                result["type"] = "CHECK_RESULT"
                 result["address"] = self._address
                 self._publish_result(result)
             elif message["method"] == "request_program":
@@ -366,7 +366,7 @@ class ClientThread(Thread):
             if self._identifier:
                 logging.debug("closing connection to result queue")
                 host_alive = {"hostname": ""+self.__username+"_"+self.__hostname,
-                              "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
+                              "type": "HOST_RESULT",
                               "severity_code": 1,
                               "output": "Disconnected",
                               "time": str(int(time.time())),
