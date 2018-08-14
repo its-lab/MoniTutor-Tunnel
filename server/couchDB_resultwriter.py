@@ -160,9 +160,16 @@ class CouchDbResultWriter(ResultWriter):
      && doc.severity_code == 0){
     username = doc.hostname.split("_")[0];
     check_name = doc.check.name;
-    severity = doc.severity_code;
     scenario_name = doc.check.scenario_name
-    emit([scenario_name, username,  check_name], severity);
+    time = doc.time*1000
+    emit([scenario_name, username,  check_name], time);
+  }
+}"""
+        reduce_maximum = """function(keys, values, rereduce){
+  if (rereduce) {
+    return values.reduce(function(a, b){return Math.max(a, b)});
+  } else {
+    return Math.max.apply(null, values);
   }
 }"""
 
@@ -185,5 +192,5 @@ class CouchDbResultWriter(ResultWriter):
         if "successful_checks" not in design_doc.list_views():
             design_doc.add_view("successful_checks",
                                 successful_checks_map_function,
-                                reduce_func='_count')
+                                reduce_func=reduce_maximum)
         design_doc.save()
