@@ -291,11 +291,9 @@ class MonitunnelClientTestCase(unittest.TestCase):
         remove("./test/test.sh")
         self.assertIn("attachments", result["body"], "Body doesn't contain attachments")
         result_attachments = result["body"]["attachments"]
-        print result_attachments
         for attachment in attachments:
             attachment_received = False
             for result_attachment in result_attachments:
-                print result_attachment["name"]
                 if result_attachment["name"] == attachment["name"]:
                     attachment_received = True
                     name = attachment["name"]
@@ -304,7 +302,6 @@ class MonitunnelClientTestCase(unittest.TestCase):
                         self.assertEqual(test_program_code, data)
                     elif name == "test_program_grep":
                         self.assertEqual("fi\n", data)
-                        print "asd"
                     elif name == "test_program_1":
                         self.fail("test_program_1 was executed")
             if not attachment_received:
