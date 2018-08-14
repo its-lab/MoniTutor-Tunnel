@@ -131,9 +131,45 @@ class MonitunnelClient(Thread):
         result = self._execute_check(check_info)
         logging.debug("check prcocessed. Result: "+str(result))
         if result:
+            self._add_attachments(check_info, result)
             result["check"] = check_info
             result = {"method": "result", "body": result}
             self.send_message(result)
+
+    def _add_attachments(self, check, result):
+        if "attachments" in check:
+            attachments = []
+            for attachment_spec in check["attachments"]:
+                if "requires_status" not in attachment_spec \
+                  or attachment_spec["requires_status"] == result["severity_code"]:
+                    attachments.append(self._create_attachment(attachment_spec))
+            result["attachments"] = attachments
+        return True
+
+    def _create_attachment(self, attachment_spec):
+        attachment = {"name": attachment_spec["name"]}
+        producer_temp_file_handle = tempfile.mkstemp(dir=self._tmp_dir)
+        produce_file = open(producer_temp_file_handle[1], "w+")
+        subprocess.call(attachment_spec["producer"],
+                        stdout=produce_file,
+                        shell=True)
+        produce_file.flush()
+        produce_file.close()
+        result_file_handle = producer_temp_file_handle[1]
+        if "filter" in attachment_spec:
+            filter_temp_file_handle = tempfile.mkstemp(dir=self._tmp_dir)
+            filtered_file = open(filter_temp_file_handle[1], "w+")
+            produce_file = open(producer_temp_file_handle[1], "r")
+            subprocess.call(attachment_spec["filter"],
+                            stdin=produce_file,
+                            stdout=filtered_file,
+                            shell=True)
+            filtered_file.flush()
+            filtered_file.close()
+            result_file_handle = filter_temp_file_handle[1]
+        result_file = open(result_file_handle, "r")
+        attachment["data"] = base64.b64encode(result_file.read())
+        return attachment
 
     def _execute_check(self, check_info):
         if self._program_is_available(check_info["program"]):
