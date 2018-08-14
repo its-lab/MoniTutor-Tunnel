@@ -277,6 +277,12 @@ class MonitunnelClientTestCase(unittest.TestCase):
             }
         client_socket.send("\x02"+json.dumps(message)+"\x03")
         response = client_socket.recv(1024)
+        responses = []
+        while "\x03" not in response:
+            responses.append(response)
+            response = client_socket.recv(1024)
+        responses.append(response)
+        response = "".join(responses)
         response = response.strip("\x02\x03")
         result = json.loads(response)
         result = json.loads(result["message"])
@@ -285,24 +291,25 @@ class MonitunnelClientTestCase(unittest.TestCase):
         remove("./test/test.sh")
         self.assertIn("attachments", result["body"], "Body doesn't contain attachments")
         result_attachments = result["body"]["attachments"]
+        print result_attachments
         for attachment in attachments:
             attachment_received = False
             for result_attachment in result_attachments:
+                print result_attachment["name"]
                 if result_attachment["name"] == attachment["name"]:
                     attachment_received = True
                     name = attachment["name"]
-                    data = d64decode(result_attachment["data"])
+                    data = b64decode(result_attachment["data"])
                     if name in ["test_program", "test_program_tail", "test_program_0"]:
-                        self.assertEqual(test_prgram_code, data)
+                        self.assertEqual(test_program_code, data)
                     elif name == "test_program_grep":
-                        self.assertEqual("fi", data)
+                        self.assertEqual("fi\n", data)
+                        print "asd"
                     elif name == "test_program_1":
                         self.fail("test_program_1 was executed")
-                if not attachment_received:
-                    if attachment["name"] == "test_program_1":
-                        attachment_received = True
-                    else:
-                        self.fail("Missing attachment:"+attachment["name"])
+            if not attachment_received:
+                if attachment["name"] != "test_program_1":
+                    self.fail("Missing attachment: "+attachment["name"])
 
     def test_execute_check_after_program_was_requested(self):
         self.client.start()
