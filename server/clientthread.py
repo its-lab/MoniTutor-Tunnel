@@ -269,6 +269,9 @@ class ClientThread(Thread):
             self._connect_to_result_queue()
         logging.debug("Publish result: "+str(result)+" to "+self._identifier)
         try:
+            if "attachments" in result:
+                self._publish_attachments(result)
+                del result["attachments"]
             self._result_channel.basic_publish(
                 exchange=self.__rabbit_config["result_exchange"],
                 routing_key=self._identifier,
@@ -278,7 +281,18 @@ class ClientThread(Thread):
             del self._result_channel
             del self._rabbit_result_connection
             self._connected_to_result_queue = False
+            result["type"] = "CHECK_RESULT"
             self._publish_result(result)
+
+    def _publish_attachments(self, result):
+        result["type"] = "ATTACHMENT"
+        self._result_channel.basic_publish(
+            exchange=self.__rabbit_config["result_exchange"],
+            routing_key="attachments."+self._identifier,
+            body=json.dumps(result)
+            )
+        result["type"] = "CHECK_RESULT"
+        return True
 
     def _connect_to_result_queue(self):
         self._rabbit_result_connection = self._connect_to_rabbit_mq()
