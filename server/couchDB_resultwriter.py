@@ -41,16 +41,33 @@ class CouchDbResultWriter(ResultWriter):
         hostname = check_result["hostname"]
         if check_result["type"] == "CHECK_RESULT":
             check_result["object_id"] = hostname+"_"+check_result["check"]["name"]
-        else:
+            self._database.create_document(check_result)
+        elif check_result["type"] == "HOST_RESULT":
             check_result["object_id"] = hostname
-        self._database.create_document(check_result)
+            self._database.create_document(check_result)
+        elif check_result["type"] == "ATTACHMENT":
+            check_result["object_id"] = "attachments_"+hostname+"_"+check_result["check"]["name"]
+            attachments = check_result["attachments"]
+            del check_result["attachments"]
+            document = self._database.create_document(check_result)
+            check_result["attachments"] = attachments
+            for attachment in attachments:
+                attachment_name = attachment["name"]
+                attachment_data = b64decode(attachment["data"])
+                existing_document.put_attachment(attachment_name, "text/plain", attachment_data)
+            document.save()
         del check_result["object_id"]
 
     def _update_check_object(self, check_result):
         hostname = check_result["hostname"]
         if check_result["type"] == "CHECK_RESULT":
             check_result["_id"] = hostname+"_"+check_result["check"]["name"]
-        else:
+        if check_result["type"] == "ATTACHMENT":
+            check_result["_id"] = "attachments_"+hostname+"_"+check_result["check"]["name"]
+            check_result["check_id"] = hostname+"_"+check_result["check"]["name"]
+            attachments = check_result["attachments"]
+            del check_result["attachments"]
+        elif check_result["type"] == "HOST_RESULT":
             check_result["_id"] = hostname
         if check_result["_id"] in self._database:
             existing_document = self._database[check_result["_id"]]
@@ -60,7 +77,13 @@ class CouchDbResultWriter(ResultWriter):
                 existing_document[key] = check_result[key]
             existing_document.save()
         else:
-            self._database.create_document(check_result)
+            existing_document = self._database.create_document(check_result)
+        if check_result["type"] = "ATTACHMENT":
+            for attachment in attachments:
+                attachment_name = attachment["name"]
+                attachment_data = b64decode(attachment["data"])
+                existing_document.put_attachment(attachment_name, "text/plain", attachment_data)
+            existing_document.save()
 
     def _init_couchDB(self):
         try:
