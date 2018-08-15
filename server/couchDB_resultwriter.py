@@ -78,7 +78,7 @@ class CouchDbResultWriter(ResultWriter):
             existing_document.save()
         else:
             existing_document = self._database.create_document(check_result)
-        if check_result["type"] = "ATTACHMENT":
+        if check_result["type"] == "ATTACHMENT":
             for attachment in attachments:
                 attachment_name = attachment["name"]
                 attachment_data = b64decode(attachment["data"])
