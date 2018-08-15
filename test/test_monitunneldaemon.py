@@ -130,6 +130,90 @@ fi
         result["hostname"] = self.username +"_"+self.hostname
         self.assertEqual(dict(json.loads(result_from_queue)),dict(json.loads(json.dumps(result))))
 
+    def test_send_task_with_attachment_to_client_and_fetch_result_from_resultqueue(self):
+        client = self._connect()
+        message = {"method": "auth","body": self.hostname}
+        hmac = self.get_hmac(json.dumps(message))
+        packet = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
+        client.send(packet)
+        task = {"program": "test_check.sh",
+                "interpreter_path": "/bin/bash",
+                "params": "/etc/hosts",
+                "name": "test_check",
+                "attachments": [
+                    {"producer": "/usr/bin/cat /etc/hosts",
+                     "filter": "/usr/bin/grep 'asdf'",
+                     "name": "test",
+                     "requires_status": 1},
+                    {"producer": "/usr/bin/cat /etc/hosts",
+                     "name": "test2"},
+                    ]
+                }
+        task_json = json.dumps(task)
+        rabbitChannel, tabbitConnection = self.get_rabbit(self.config_rabbit["task_exchange"])
+        rabbitChannel.basic_publish(
+            exchange=self.config_rabbit["task_exchange"],
+            routing_key=self.username+"."+self.hostname,
+            properties=pika.BasicProperties(reply_to="asdf", content_type="application/json", correlation_id="1"),
+            body=task_json)
+        response = json.loads(client.recv(1024).strip("\x02\x03"))
+        self.assertEqual(response["message"]["body"], task)
+        self.assertEqual(response["message"]["correlation_id"], "1")
+        rabbitChannel.close()
+        time_now = int(time.time())
+        result = {"time": str(time_now),
+                  "severity_code": 1,
+                  "output": "This is a test",
+                  "name": task["name"],
+                  "check": task,
+                  "address": "127.0.0.1",
+                  "attachments": [
+                      {"name": "test",
+                       "data": "asd"},
+                      {"name": "test2",
+                       "data": "asdf"}
+                      ]
+                 }
+        message = {"method": "result","body": result}
+        hmac = self.get_hmac(json.dumps(message))
+        packet = "\x02"+json.dumps({"ID": self.username, "HMAC": hmac, "message": json.dumps(message)})+"\x03"
+        rabbitChannel, rabbitConnection = self.get_rabbit(self.config_rabbit["result_exchange"])
+        result_queue = rabbitChannel.queue_declare(exclusive=True)
+        rabbitChannel.queue_bind(
+                exchange=self.config_rabbit["result_exchange"],
+                queue = result_queue.method.queue,
+                routing_key = self.username+"."+self.hostname
+                )
+        rabbitChannel.queue_bind(
+                exchange=self.config_rabbit["result_exchange"],
+                queue = result_queue.method.queue,
+                routing_key = "attachments."+self.username+"."+self.hostname
+                )
+        client.send(packet)
+        time.sleep(1)
+        result_messages = []
+        get_ok, properties, result_from_queue = rabbitChannel.basic_get(result_queue.method.queue)
+        result_messages.append(result_from_queue)
+        get_ok, properties, result_from_queue = rabbitChannel.basic_get(result_queue.method.queue)
+        result_messages.append(result_from_queue)
+        result["hostname"] = self.username +"_"+self.hostname
+        attachments_received = False
+        del client
+        for pos, result_from_queue in enumerate(result_messages):
+            self.assertNotEqual(result_from_queue, None, "Message "+str(pos+1)+" missing")
+            result_from_queue = json.loads(result_from_queue)
+            if result_from_queue["type"] == "CHECK_RESULT":
+                result_without_attachments = result.copy()
+                result_without_attachments["type"] = "CHECK_RESULT"
+                del result_without_attachments["attachments"]
+                self.assertEqual(dict(result_from_queue),dict(json.loads(json.dumps(result_without_attachments))))
+            elif result_from_queue["type"] == "ATTACHMENT":
+                attachments_received = True
+                result["type"] = "ATTACHMENT"
+                self.assertEqual(dict(result_from_queue),dict(json.loads(json.dumps(result))))
+        if not attachments_received:
+            self.assertFail("ATTACHMENT message not received")
+
     def test_monitunnel_ip_config(self):
         self.assertEqual(self.config, self.monitunnelDaemon._config)
 
