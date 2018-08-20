@@ -2,6 +2,7 @@
 import logging
 from resultwriter import ResultWriter
 from cloudant.client import CouchDB
+from base64 import b64decode
 
 
 class CouchDbResultWriter(ResultWriter):
@@ -54,7 +55,7 @@ class CouchDbResultWriter(ResultWriter):
             for attachment in attachments:
                 attachment_name = attachment["name"]
                 attachment_data = b64decode(attachment["data"])
-                existing_document.put_attachment(attachment_name, "text/plain", attachment_data)
+                document.put_attachment(attachment_name, "text/plain", attachment_data)
             document.save()
         del check_result["object_id"]
 
