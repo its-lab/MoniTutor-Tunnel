@@ -98,21 +98,21 @@ class CouchDbResultWriter(ResultWriter):
         check_result_history_map_function = """function(doc){
   var time, output, hostname, severity, check_name, username;
   if(doc.type == "CHECK_RESULT" && doc.object_id){
-    hostname = doc.hostname.split("_")[1];
-    username = doc.hostname.split("_")[0];
+    hostname = doc.hostname;
+    username = doc.username;
     check_name = doc.check.name;
     time = new Date(Number(doc.time)*1000);
     output = doc.output;
     severity = doc.severity_code;
     scenario_name = doc.check.scenario_name;
-    emit([username, scenario_name, check_name, time], {output: output, severity: severity});
+    emit([username, scenario_name, check_name, time], {output: output, severity: severity, hostname: hostname});
   }
 }"""
         check_results_map_function = """function(doc){
   var time, output, hostname, severity, check_name, username;
   if(doc.type == "CHECK_RESULT" && !doc.object_id){
-    hostname = doc.hostname.split("_")[1];
-    username = doc.hostname.split("_")[0];
+    hostname = doc.hostname;
+    username = doc.username;
     check_name = doc.check.name;
     time = new Date(Number(doc.time)*1000);
     output = doc.output;
@@ -124,8 +124,8 @@ class CouchDbResultWriter(ResultWriter):
         host_status_history_map_function = """function(doc){
   var time, output, hostname, severity, username;
   if(doc.type == "HOST_RESULT" && doc.object_id){
-    hostname = doc.hostname.split("_")[1];
-    username = doc.hostname.split("_")[0];
+    hostname = doc.hostname;
+    username = doc.username;
     time = new Date(Number(doc.time)*1000);
     output = doc.output;
     severity = doc.severity_code;
@@ -135,8 +135,8 @@ class CouchDbResultWriter(ResultWriter):
         host_status_map_function = """function(doc){
   var time, output, hostname, severity, username;
   if(doc.type == "HOST_RESULT" && !doc.object_id){
-    hostname = doc.hostname.split("_")[1];
-    username = doc.hostname.split("_")[0];
+    hostname = doc.hostname;
+    username = doc.username;
     time = new Date(Number(doc.time)*1000);
     output = doc.output;
     severity = doc.severity_code;
@@ -146,8 +146,8 @@ class CouchDbResultWriter(ResultWriter):
         severity_map_function = """function(doc){
   var time, output, hostname, severity, check_name, username;
   if(doc.type == "CHECK_RESULT" && doc.object_id){
-    hostname = doc.hostname.split("_")[1];
-    username = doc.hostname.split("_")[0];
+    hostname = doc.hostname;
+    username = doc.username;
     check_name = doc.check.name;
     time = new Date(Number(doc.time)*1000);
     output = doc.output;
@@ -159,8 +159,8 @@ class CouchDbResultWriter(ResultWriter):
         scenario_severity_map_function = """function(doc){
   var time, output, hostname, severity, check_name, username;
   if(doc.type == "CHECK_RESULT" && doc.object_id){
-    hostname = doc.hostname.split("_")[1];
-    username = doc.hostname.split("_")[0];
+    hostname = doc.hostname;
+    username = doc.username;
     check_name = doc.check.name;
     time = new Date(Number(doc.time)*1000);
     output = doc.output;
@@ -178,11 +178,11 @@ class CouchDbResultWriter(ResultWriter):
 }"""
 
         successful_checks_map_function = """function(doc){
-  var time, output, hostname, severity, check_name, username;
+  var time, output, severity, check_name, username;
   if(doc.type == "CHECK_RESULT"
      && doc.object_id
      && doc.severity_code == 0){
-    username = doc.hostname.split("_")[0];
+    username = doc.username;
     check_name = doc.check.name;
     scenario_name = doc.check.scenario_name
     time = doc.time*1000

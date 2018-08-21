@@ -156,7 +156,8 @@ class ClientThread(Thread):
                         name="rabbit_consumer")
                     logging.debug("Starting queue connection thread")
                     self._task_queue_connection_thread.start()
-                host_alive = {"hostname": ""+self.__username+"_"+self.__hostname,
+                host_alive = {"hostname": self.__hostname,
+                              "username": self.__username,
                               "type": "HOST_RESULT",
                               "severity_code": 0,
                               "output": "Connected",
@@ -167,7 +168,8 @@ class ClientThread(Thread):
                 result = message["body"]
                 result["name"] = result["check"]["name"]
                 result["time"] = str(int(time.time()))
-                result["hostname"] = ""+self.__username+"_"+self.__hostname
+                result["hostname"] = self.__hostname
+                result["username"] = self.__username
                 result["type"] = "CHECK_RESULT"
                 result["address"] = self._address
                 self._publish_result(result)
@@ -379,7 +381,8 @@ class ClientThread(Thread):
         if self._connected_to_result_queue:
             if self._identifier:
                 logging.debug("closing connection to result queue")
-                host_alive = {"hostname": ""+self.__username+"_"+self.__hostname,
+                host_alive = {"hostname": self.__hostname,
+                              "username": self.__username,
                               "type": "HOST_RESULT",
                               "severity_code": 1,
                               "output": "Disconnected",
