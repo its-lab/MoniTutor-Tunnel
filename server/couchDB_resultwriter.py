@@ -35,8 +35,11 @@ class CouchDbResultWriter(ResultWriter):
 
     def _write_result(self, result):
         logging.info("Write result: "+str(result))
-        self._add_check_to_history(result)
-        self._update_check_object(result)
+        try:
+            self._add_check_to_history(result)
+            self._update_check_object(result)
+        except Exception as e:
+            logging.exception("Error writing result:" + str(result))
 
     def _add_check_to_history(self, check_result):
         hostname = check_result["hostname"]

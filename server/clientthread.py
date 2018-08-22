@@ -283,7 +283,6 @@ class ClientThread(Thread):
             del self._result_channel
             del self._rabbit_result_connection
             self._connected_to_result_queue = False
-            result["type"] = "CHECK_RESULT"
             self._publish_result(result)
 
     def _publish_attachments(self, result):
