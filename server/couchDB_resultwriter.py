@@ -40,14 +40,15 @@ class CouchDbResultWriter(ResultWriter):
 
     def _add_check_to_history(self, check_result):
         hostname = check_result["hostname"]
+        username = check_result["username"]
         if check_result["type"] == "CHECK_RESULT":
-            check_result["object_id"] = hostname+"_"+check_result["check"]["name"]
+            check_result["object_id"] = username+"_"+check_result["check"]["name"]
             self._database.create_document(check_result)
         elif check_result["type"] == "HOST_RESULT":
-            check_result["object_id"] = hostname
+            check_result["object_id"] = username+"_"+hostname
             self._database.create_document(check_result)
         elif check_result["type"] == "ATTACHMENT":
-            check_result["object_id"] = "attachments_"+hostname+"_"+check_result["check"]["name"]
+            check_result["object_id"] = "attachments_"+username+"_"+check_result["check"]["name"]
             attachments = check_result["attachments"]
             del check_result["attachments"]
             document = self._database.create_document(check_result)
@@ -61,15 +62,16 @@ class CouchDbResultWriter(ResultWriter):
 
     def _update_check_object(self, check_result):
         hostname = check_result["hostname"]
+        username = check_result["username"]
         if check_result["type"] == "CHECK_RESULT":
-            check_result["_id"] = hostname+"_"+check_result["check"]["name"]
+            check_result["_id"] = username+"_"+check_result["check"]["name"]
         if check_result["type"] == "ATTACHMENT":
-            check_result["_id"] = "attachments_"+hostname+"_"+check_result["check"]["name"]
-            check_result["check_id"] = hostname+"_"+check_result["check"]["name"]
+            check_result["_id"] = "attachments_"+username+"_"+check_result["check"]["name"]
+            check_result["check_id"] = username+"_"+check_result["check"]["name"]
             attachments = check_result["attachments"]
             del check_result["attachments"]
         elif check_result["type"] == "HOST_RESULT":
-            check_result["_id"] = hostname
+            check_result["_id"] = username+"_"+hostname
         if check_result["_id"] in self._database:
             existing_document = self._database[check_result["_id"]]
             for key in check_result.viewkeys() & dict(existing_document).viewkeys():
@@ -118,7 +120,13 @@ class CouchDbResultWriter(ResultWriter):
     output = doc.output;
     severity = doc.severity_code;
     scenario_name = doc.check.scenario_name;
-    emit([username, check_name], {output: output, severity: severity, time: time, scenario_name: scenario_name});
+    if ("attachments" in doc.check){
+      attachments = doc.check.attachments;
+    }
+    else{
+      attachments = [];
+    }
+    emit([username, check_name], {output: output, severity: severity, time: time, scenario_name: scenario_name, attachments: attachments, hostname:hostname});
   }
 }"""
         host_status_history_map_function = """function(doc){
