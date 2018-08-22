@@ -78,8 +78,6 @@ class CouchDbResultWriter(ResultWriter):
         if check_result["_id"] in self._database:
             existing_document = self._database[check_result["_id"]]
             for key in check_result.viewkeys() & dict(existing_document).viewkeys():
-                logging.info("existing_doucument." + key + "=check_result." +
-                             key + " with value: " + str(check_result[key]))
                 existing_document[key] = check_result[key]
             existing_document.save()
         else:
