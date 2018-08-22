@@ -35,7 +35,7 @@ daemon = MoniTunnelDaemon(port=config["port"],
                           db_database=config["db_name"],
                           db_username=config["db_user"])
 
-logger = get_logger()
+logger = get_logger(config["verbose"])
 configure_logging(logger, config["logging"])
 
 
