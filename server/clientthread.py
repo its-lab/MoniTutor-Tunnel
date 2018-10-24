@@ -21,8 +21,10 @@ class ClientThread(Thread):
                  db_config="",
                  rabbit_config="",
                  ssl_enabled=False,
-                 ssl_context=False):
+                 ssl_context=False,
+                 client_address=None):
         super(ClientThread, self).__init__()
+        self._address=client_address
         self._socket = socket
         self._identifier = False
         self.__message_inbox_lock = Semaphore(0)
@@ -154,18 +156,22 @@ class ClientThread(Thread):
                         name="rabbit_consumer")
                     logging.debug("Starting queue connection thread")
                     self._task_queue_connection_thread.start()
-                host_alive = {"hostname": ""+self.__username+"_"+self.__hostname,
-                              "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
+                host_alive = {"hostname": self.__hostname,
+                              "username": self.__username,
+                              "type": "HOST_RESULT",
                               "severity_code": 0,
                               "output": "Connected",
-                              "time": str(int(time.time()))}
+                              "time": str(int(time.time())),
+                              "address": self._address}
                 self._publish_result(host_alive)
             elif message["method"] == "result":
                 result = message["body"]
                 result["name"] = result["check"]["name"]
                 result["time"] = str(int(time.time()))
-                result["hostname"] = ""+self.__username+"_"+self.__hostname
-                result["icingacmd_type"] = "PROCESS_SERVICE_CHECK_RESULT"
+                result["hostname"] = self.__hostname
+                result["username"] = self.__username
+                result["type"] = "CHECK_RESULT"
+                result["address"] = self._address
                 self._publish_result(result)
             elif message["method"] == "request_program":
                 code = self._get_program_code(message["body"])
@@ -265,6 +271,9 @@ class ClientThread(Thread):
             self._connect_to_result_queue()
         logging.debug("Publish result: "+str(result)+" to "+self._identifier)
         try:
+            if "attachments" in result:
+                self._publish_attachments(result)
+                del result["attachments"]
             self._result_channel.basic_publish(
                 exchange=self.__rabbit_config["result_exchange"],
                 routing_key=self._identifier,
@@ -275,6 +284,16 @@ class ClientThread(Thread):
             del self._rabbit_result_connection
             self._connected_to_result_queue = False
             self._publish_result(result)
+
+    def _publish_attachments(self, result):
+        result["type"] = "ATTACHMENT"
+        self._result_channel.basic_publish(
+            exchange=self.__rabbit_config["result_exchange"],
+            routing_key="attachments."+self._identifier,
+            body=json.dumps(result)
+            )
+        result["type"] = "CHECK_RESULT"
+        return True
 
     def _connect_to_result_queue(self):
         self._rabbit_result_connection = self._connect_to_rabbit_mq()
@@ -361,11 +380,13 @@ class ClientThread(Thread):
         if self._connected_to_result_queue:
             if self._identifier:
                 logging.debug("closing connection to result queue")
-                host_alive = {"hostname": ""+self.__username+"_"+self.__hostname,
-                              "icingacmd_type": "PROCESS_HOST_CHECK_RESULT",
+                host_alive = {"hostname": self.__hostname,
+                              "username": self.__username,
+                              "type": "HOST_RESULT",
                               "severity_code": 1,
                               "output": "Disconnected",
-                              "time": str(int(time.time()))}
+                              "time": str(int(time.time())),
+                              "address": self._address}
                 self._publish_result(host_alive)
                 self._connected_to_result_queue = False
             try:

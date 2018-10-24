@@ -56,7 +56,7 @@ class MoniTunnelDaemon(Thread):
             try:
                 client_socket, client_address = self._socket.accept()
                 logging.info("New client: " + str(client_address))
-                self._start_new_client_thread(client_socket)
+                self._start_new_client_thread(client_socket, client_address[0])
             except socket.error as err:
                 if err.message != "timed out":
                     logging.exception("Socket error. Restart socket.")
@@ -80,8 +80,8 @@ class MoniTunnelDaemon(Thread):
             self.__socket_open = False
             time.sleep(1)
 
-    def _start_new_client_thread(self, client_socket):
-        client_thread = ClientThread(client_socket, self.__db_config, self.__rabbit_config, self._ssl_enabled, self._ssl_context)
+    def _start_new_client_thread(self, client_socket, client_address):
+        client_thread = ClientThread(client_socket, self.__db_config, self.__rabbit_config, self._ssl_enabled, self._ssl_context, client_address)
         logging.debug("Starting new client thread")
         client_thread.start()
         self.__thread_list.append(client_thread)

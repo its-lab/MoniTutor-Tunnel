@@ -2,12 +2,12 @@ import argparse
 import logging
 import signal
 import time
-from server.icinga2_resultwriter import IcingaResultWriter as ResultWriter
+from server.couchDB_resultwriter import CouchDbResultWriter as ResultWriter
 import sys
 import os
 from utils import daemonize
-from utils import configure_logging
 from utils import get_logger
+from utils import configure_logging
 
 parser = argparse.ArgumentParser(description="MoniTunnel server")
 parser.add_argument("-a", "--rabbit-mq-host", default="localhost", help="Address of the rabbit-mq server")
@@ -16,14 +16,18 @@ parser.add_argument("-l", "--logging", action="store_true", help="Write messages
 parser.add_argument("-t", "--task-exchange", default="task_exchange", help="Name of the task exchange")
 parser.add_argument("-r", "--result-exchange", default="result_exchange", help="Name of the result exchange")
 parser.add_argument("-d", "--daemonize", action="store_true", help="Start as daemon")
-parser.add_argument("-i", "--icinga-path", default="/var/run/icinga2/cmd/icinga2.cmd", help="Absolut path to icinga2.cmd file")
+parser.add_argument("-i", "--couch-db-url", default="http://couchdb:5984", help="CouchDB server API url")
+parser.add_argument("-u", "--couch-db-user")
+parser.add_argument("-p", "--couch-db-password")
 
 config = vars(parser.parse_args())
 
 result_writer = ResultWriter(config["rabbit_mq_host"],
                              config["result_exchange"],
                              config["task_exchange"],
-                             config["icinga_path"])
+                             config["couch_db_url"],
+                             couch_db_user=config["couch_db_user"],
+                             couch_db_password=config["couch_db_password"])
 
 logger = get_logger(config["verbose"])
 configure_logging(logger, config["logging"])
@@ -48,7 +52,7 @@ if "__main__" == __name__:
     signal.signal(signal.SIGALRM, signal_handler)
     signal.signal(signal.SIGHUP, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    logging.debug("Start Icinga ResultWriter Thread")
+    logging.debug("Start ResultWriter Thread")
     result_writer.start()
     run = True
     while run:
