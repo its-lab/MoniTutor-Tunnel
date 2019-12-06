@@ -39,7 +39,7 @@ class ResultWriter(Thread):
             exchange=self._config["result_exchange"],
             exchange_type="topic"
             )
-        self.__result_queue = self._rabbit_channel.queue_declare(exclusive=True)
+        self.__result_queue = self._rabbit_channel.queue_declare("", exclusive=True)
         self._queue_name = self.__result_queue.method.queue
         self._rabbit_channel.queue_bind(
             exchange=self._config["result_exchange"],
@@ -47,9 +47,8 @@ class ResultWriter(Thread):
             routing_key="#"
             )
         self._rabbit_channel.basic_consume(
+            self._queue_name,
             self._message_callback,
-            queue=self._queue_name,
-            no_ack=True
             )
 
     def _message_callback(self, channel, method, properties, body_json):

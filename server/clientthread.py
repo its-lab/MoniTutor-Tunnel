@@ -351,8 +351,8 @@ class ClientThread(Thread):
             queue=self._identifier,
             routing_key="all")
         self._rabbit_channel.basic_consume(
-            self._process_task,
-            queue=self._identifier)
+            self._identifier,
+            self._process_task)
 
     def __consume_tasks(self):
         while self.__running:
